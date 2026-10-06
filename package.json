@@ -1,0 +1,21 @@
+{
+  "name": "ble_chat",
+  "version": "1.0.0",
+  "description": "Chat app using Bluetooth Low Energy",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "script": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "husky": "^9.1.7",
+    "semantic-release": "^24.2.0"
+  }
+}

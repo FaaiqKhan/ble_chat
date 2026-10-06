@@ -1,0 +1,16 @@
+if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
+  echo "Direct commits to main are blocked!" >&2
+  exit 1
+fi
+
+flutter analyze
+if [ $? -ne 0 ]; then
+  echo "❌ Analyze failed. Fix issues before committing."
+  exit 1
+fi
+
+dart format --output=none --set-exit-if-changed .
+if [ $? -ne 0 ]; then
+  echo "❌ Code is not formatted. Run: dart format ."
+  exit 1
+fi

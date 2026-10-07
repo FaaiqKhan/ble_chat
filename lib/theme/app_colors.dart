@@ -31,6 +31,35 @@ abstract final class AppColors {
   static const fg3 = Color(0xFF616161);
   static const fg4 = Color(0xFF9E9E9E);
 
+  static const onPrimary = Color(0xFFFFFFFF);
+
+  static const primaryGrad = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [primary, primary300],
+  );
+
+  // Dark-theme brand overrides
+  static const darkPrimary050 = Color(0xFF272250);
+  static const darkPrimaryFg = Color(0xFFA592FF);
+
+  // Shadows
+  static const shadowPrimary = BoxShadow(
+    color: Color(0x476949FF),
+    offset: Offset(0, 10),
+    blurRadius: 24,
+  );
+  static const shadow1 = BoxShadow(
+    color: Color(0x14181A20),
+    offset: Offset(0, 4),
+    blurRadius: 16,
+  );
+  static const shadow1Dark = BoxShadow(
+    color: Color(0x59000000),
+    offset: Offset(0, 4),
+    blurRadius: 16,
+  );
+
   // Dark neutrals
   static const darkBg = Color(0xFF181A20);
   static const darkSurface = Color(0xFF1F222A);

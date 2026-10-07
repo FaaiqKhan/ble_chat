@@ -1,5 +1,12 @@
 # Changelog
 
+# [1.1.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.0.0...v1.1.0) (2026-10-07)
+
+
+### Features
+
+* home screen created ([515c138](https://github.com/FaaiqKhan/ble_chat/commit/515c138bbb69a9abc2813851ab5cff8e4d60c398))
+
 # 1.0.0 (2026-10-07)
 
 

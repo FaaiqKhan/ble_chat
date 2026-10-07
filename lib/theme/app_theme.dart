@@ -124,7 +124,7 @@ abstract final class AppTheme {
         height: 1.2,
       ).copyWith(fontWeight: FontWeight.w600),
       labelSmall: body(
-        10,
+        11,
         fg3,
         height: 1.2,
       ).copyWith(fontWeight: FontWeight.w600),

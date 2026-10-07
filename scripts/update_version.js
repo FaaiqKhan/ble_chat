@@ -23,12 +23,3 @@ const updated = content.replace(
 
 fs.writeFileSync(pubspecPath, updated);
 console.log(`pubspec.yaml updated to ${version}+${nextBuild}`);
-
-const changelogPath = './CHANGELOG.md';
-const changelog = fs.readFileSync(changelogPath, 'utf8');
-if (changelog.includes('## [Unreleased]')) {
-  fs.writeFileSync(changelogPath, changelog.replace('## [Unreleased]', `## [${version}]`));
-  console.log(`CHANGELOG.md [Unreleased] → [${version}]`);
-} else {
-  console.warn('CHANGELOG.md has no [Unreleased] section — skipping.');
-}

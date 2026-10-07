@@ -13,6 +13,10 @@
     ],
     "@semantic-release/release-notes-generator",
     [
+      "@semantic-release/changelog",
+      { "changelogTitle": "# Changelog" }
+    ],
+    [
       "@semantic-release/exec",
       {
         "prepareCmd": "node scripts/update_version.js ${nextRelease.version}"

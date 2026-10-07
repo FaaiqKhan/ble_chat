@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_palette.dart';
 
 abstract final class AppFonts {
   static const display = 'Fraunces';
@@ -20,6 +21,7 @@ abstract final class AppRadius {
 abstract final class AppTheme {
   static final light = _build(
     brightness: Brightness.light,
+    palette: AppPalette.light,
     bg: AppColors.bg,
     surface: AppColors.surface,
     surface2: AppColors.surface2,
@@ -33,6 +35,7 @@ abstract final class AppTheme {
 
   static final dark = _build(
     brightness: Brightness.dark,
+    palette: AppPalette.dark,
     bg: AppColors.darkBg,
     surface: AppColors.darkSurface,
     surface2: AppColors.darkSurface2,
@@ -46,6 +49,7 @@ abstract final class AppTheme {
 
   static ThemeData _build({
     required Brightness brightness,
+    required AppPalette palette,
     required Color bg,
     required Color surface,
     required Color surface2,
@@ -56,8 +60,6 @@ abstract final class AppTheme {
     required Color fg3,
     required Color fg4,
   }) {
-    final isDark = brightness == Brightness.dark;
-
     final scheme = ColorScheme(
       brightness: brightness,
       primary: AppColors.cta,
@@ -66,7 +68,7 @@ abstract final class AppTheme {
       onSecondary: Colors.white,
       tertiary: AppColors.accent,
       onTertiary: AppColors.fg1,
-      error: AppColors.error,
+      error: palette.error,
       onError: Colors.white,
       surface: bg,
       onSurface: fg1,
@@ -136,6 +138,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
+      extensions: [palette],
       scaffoldBackgroundColor: bg,
       fontFamily: AppFonts.ui,
       textTheme: textTheme,
@@ -186,10 +189,10 @@ abstract final class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: isDark ? surface2 : AppColors.primary050,
+        backgroundColor: palette.primarySoft,
         labelStyle: body(
           12,
-          isDark ? AppColors.primary300 : AppColors.primary,
+          palette.primaryFg,
         ).copyWith(fontWeight: FontWeight.w700),
         side: BorderSide.none,
         shape: pill,
@@ -216,7 +219,7 @@ abstract final class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.error),
+          borderSide: BorderSide(color: palette.error),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(

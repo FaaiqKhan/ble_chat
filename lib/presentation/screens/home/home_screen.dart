@@ -1,4 +1,6 @@
+import 'package:ble_chat/presentation/common/bluetooth_banner.dart';
 import 'package:ble_chat/theme/app_colors.dart';
+import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -21,6 +23,8 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              BluetoothBanner(title: 'Bluetooth is off', onTap: () {}),
+              const SizedBox(height: 18),
               Expanded(
                 child: SingleChildScrollView(
                   clipBehavior: Clip.none,
@@ -59,8 +63,8 @@ class HomeScreen extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.success,
+                      decoration: BoxDecoration(
+                        color: context.palette.success,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -126,7 +130,7 @@ class _RoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+    final palette = context.palette;
     final radius = BorderRadius.circular(AppRadius.lg);
 
     const onFilled = AppColors.onPrimary;
@@ -134,8 +138,8 @@ class _RoleCard extends StatelessWidget {
     final subFg = filled
         ? onFilled.withValues(alpha: 0.95)
         : cs.onSurfaceVariant;
-    final tint = isDark ? AppColors.darkPrimary050 : AppColors.primary050;
-    final accent = isDark ? AppColors.darkPrimaryFg : cs.secondary;
+    final tint = palette.primarySoft;
+    final accent = palette.primaryFg;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -143,12 +147,7 @@ class _RoleCard extends StatelessWidget {
         gradient: filled ? AppColors.primaryGrad : null,
         color: filled ? null : cs.surface,
         border: filled ? null : Border.all(color: cs.outline, width: 1.5),
-        boxShadow: [
-          if (filled)
-            AppColors.shadowPrimary
-          else
-            isDark ? AppColors.shadow1Dark : AppColors.shadow1,
-        ],
+        boxShadow: [filled ? AppColors.shadowPrimary : palette.shadowCard],
       ),
       child: Material(
         type: MaterialType.transparency,

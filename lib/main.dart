@@ -1,31 +1,18 @@
 import 'dart:io';
 
-import 'package:ble_chat/business_logic/bluetooth_permission/bluetooth_permission_cubit.dart';
-import 'package:ble_chat/business_logic/bluetooth_permission/bluetooth_permission_state.dart';
-import 'package:ble_chat/data/repository_impl/bluetooth_permission_repository_impl.dart';
-import 'package:ble_chat/domain/repository/bluetooth_permission_repository.dart';
+import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
+import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_state.dart';
+import 'package:ble_chat/data/repository_impl/bluetooth_manager_repository_impl.dart';
+import 'package:ble_chat/domain/repository/bluetooth_manager_repository.dart';
 import 'package:ble_chat/presentation/common/bluetooth_banner.dart';
 import 'package:ble_chat/presentation/screens/home/home_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
-}
-
-class BluetoothStateService {
-  static const _eventChannel = EventChannel("bluetoothState/events");
-  static final instance = BluetoothStateService._();
-
-  BluetoothStateService._();
-
-  late final Stream<String> state = _eventChannel
-      .receiveBroadcastStream()
-      .cast<String>()
-      .asBroadcastStream();
 }
 
 Widget _withGap(Widget banner) =>
@@ -77,23 +64,14 @@ class MyApp extends StatelessWidget {
                                     .request,
                               ),
                             )
-                          else if (isGranted)
-                            StreamBuilder<String>(
-                              stream: BluetoothStateService.instance.state,
-                              builder: (context, snapshot) {
-                                final isOff =
-                                    snapshot.data == 'off' ||
-                                    snapshot.data == 'turningOff';
-                                if (!isOff) return const SizedBox.shrink();
-                                return _withGap(
-                                  BluetoothBanner(
-                                    title: 'Bluetooth is off',
-                                    onTap: context
-                                        .read<BluetoothPermissionCubit>()
-                                        .enableBluetooth,
-                                  ),
-                                );
-                              },
+                          else if (isGranted && state.isBluetoothOn == false)
+                            _withGap(
+                              BluetoothBanner(
+                                title: 'Bluetooth is off',
+                                onTap: context
+                                    .read<BluetoothPermissionCubit>()
+                                    .enableBluetooth,
+                              ),
                             ),
                           Expanded(child: child!),
                         ],

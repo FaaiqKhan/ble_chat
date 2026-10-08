@@ -1,8 +1,11 @@
-import 'package:ble_chat/business_logic/bluetooth_permission/bluetooth_permission_state.dart';
-import 'package:ble_chat/domain/repository/bluetooth_permission_repository.dart';
+import 'dart:async';
+
+import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_state.dart';
+import 'package:ble_chat/domain/repository/bluetooth_manager_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Checks the Bluetooth permission on start and asks for it if missing.
+/// Checks the Bluetooth permission on start and asks for it if missing, and
+/// tracks whether the Bluetooth radio is on once permission is granted.
 class BluetoothPermissionCubit extends Cubit<BluetoothPermissionState> {
   BluetoothPermissionCubit(this._repo)
     : super(const BluetoothPermissionState()) {
@@ -10,6 +13,13 @@ class BluetoothPermissionCubit extends Cubit<BluetoothPermissionState> {
   }
 
   final BluetoothPermissionRepository _repo;
+  StreamSubscription<bool>? _bluetoothSub;
+
+  @override
+  Future<void> close() {
+    _bluetoothSub?.cancel();
+    return super.close();
+  }
 
   Future<void> _init() async {
     final current = await _repo.checkBluetoothPermission();
@@ -39,7 +49,22 @@ class BluetoothPermissionCubit extends Cubit<BluetoothPermissionState> {
     _emitStatus(await _repo.requestBluetoothPermission());
   }
 
+  /// The radio state is only watched while permission is granted, as it
+  /// can't be read reliably without it (notably on iOS).
   void _emitStatus(BluetoothPermissionStatus status) {
-    if (!isClosed) emit(BluetoothPermissionState(status: status));
+    if (status == BluetoothPermissionStatus.permissionGranted) {
+      _bluetoothSub ??= _repo.watchBluetoothIsOn().listen(
+        (isOn) => _emit(state.copyWith(isBluetoothOn: isOn)),
+      );
+      _emit(state.copyWith(status: status));
+    } else {
+      _bluetoothSub?.cancel();
+      _bluetoothSub = null;
+      _emit(BluetoothPermissionState(status: status));
+    }
+  }
+
+  void _emit(BluetoothPermissionState next) {
+    if (!isClosed) emit(next);
   }
 }

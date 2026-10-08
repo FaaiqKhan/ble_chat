@@ -1,7 +1,7 @@
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
-import 'package:ble_chat/business_logic/bluetooth_permission/bluetooth_permission_cubit.dart';
+import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -38,69 +38,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final granted = true;
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
+    final isBluetoothReady =
+        context.select((BluetoothPermissionCubit c) => c.state.isBluetoothOn) ??
+        false;
+
     return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              clipBehavior: Clip.none,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'WORKS WITHOUT INTERNET',
-                    style: monoStyle(
-                      size: 11,
-                      weight: FontWeight.w600,
-                      color: cs.onSurfaceVariant,
-                    ).copyWith(letterSpacing: 11 * 0.08),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Local Room', style: tt.displayMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 18),
-                  _RoleCard.host(enabled: granted, onTap: widget.onHost),
-                  const SizedBox(height: 14),
-                  _RoleCard.join(enabled: granted, onTap: widget.onJoin),
-                ],
-              ),
+      body: SingleChildScrollView(
+        clipBehavior: Clip.none,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'WORKS WITHOUT INTERNET',
+              style: monoStyle(
+                size: 11,
+                weight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+              ).copyWith(letterSpacing: 11 * 0.08),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: context.palette.success,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Bluetooth on · ready',
-                  style: monoStyle(size: 12, color: cs.onSurfaceVariant),
-                ),
-                const Spacer(),
-                Text(
-                  'up to 5 people',
-                  style: monoStyle(size: 12, color: cs.onSurfaceVariant),
-                ),
-              ],
+            const SizedBox(height: 8),
+            Text('Local Room', style: tt.displayMedium),
+            const SizedBox(height: 8),
+            Text(
+              'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
-          ),
-        ],
+            const SizedBox(height: 18),
+            _RoleCard.host(enabled: isBluetoothReady, onTap: widget.onHost),
+            const SizedBox(height: 14),
+            _RoleCard.join(enabled: isBluetoothReady, onTap: widget.onJoin),
+          ],
+        ),
       ),
     );
   }

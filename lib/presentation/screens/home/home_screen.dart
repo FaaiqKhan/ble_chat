@@ -1,24 +1,21 @@
-import 'package:ble_chat/presentation/common/bluetooth_banner.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
-import 'package:ble_chat/domain/repository/bluetooth_permission_repository.dart';
-import 'package:ble_chat/presentation/providers/bluetooth_permission_provider.dart';
+import 'package:ble_chat/business_logic/bluetooth_permission/bluetooth_permission_cubit.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onHost, this.onJoin});
 
   final VoidCallback? onHost;
   final VoidCallback? onJoin;
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -35,100 +32,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      ref.read(bluetoothPermissionControllerProvider.notifier).refresh();
+      context.read<BluetoothPermissionCubit>().refresh();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final permission = ref.watch(bluetoothPermissionControllerProvider).value;
-    final granted = permission == BluetoothPermissionStatus.granted;
-    final btOff = permission == BluetoothPermissionStatus.bluetoothOff;
+    final granted = true;
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (permission != null && !granted) ...[
-                BluetoothBanner(
-                  title: btOff
-                      ? 'Bluetooth is off'
-                      : 'Bluetooth permission denied',
-                  onTap: ref
-                      .read(bluetoothPermissionControllerProvider.notifier)
-                      .request,
-                ),
-                const SizedBox(height: 18),
-              ],
-              Expanded(
-                child: SingleChildScrollView(
-                  clipBehavior: Clip.none,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'WORKS WITHOUT INTERNET',
-                        style: monoStyle(
-                          size: 11,
-                          weight: FontWeight.w600,
-                          color: cs.onSurfaceVariant,
-                        ).copyWith(letterSpacing: 11 * 0.08),
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Local Room', style: tt.displayMedium),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
-                        style: tt.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _RoleCard.host(enabled: granted, onTap: widget.onHost),
-                      const SizedBox(height: 14),
-                      _RoleCard.join(enabled: granted, onTap: widget.onJoin),
-                    ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              clipBehavior: Clip.none,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'WORKS WITHOUT INTERNET',
+                    style: monoStyle(
+                      size: 11,
+                      weight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ).copyWith(letterSpacing: 11 * 0.08),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Local Room', style: tt.displayMedium),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
+                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 18),
+                  _RoleCard.host(enabled: granted, onTap: widget.onHost),
+                  const SizedBox(height: 14),
+                  _RoleCard.join(enabled: granted, onTap: widget.onJoin),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: context.palette.success,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: granted ? context.palette.success : cs.error,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      granted
-                          ? 'Bluetooth on · ready'
-                          : btOff
-                          ? 'Bluetooth off'
-                          : 'Permission denied',
-                      style: monoStyle(size: 12, color: cs.onSurfaceVariant),
-                    ),
-                    const Spacer(),
-                    Text(
-                      'up to 5 people',
-                      style: monoStyle(size: 12, color: cs.onSurfaceVariant),
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                Text(
+                  'Bluetooth on · ready',
+                  style: monoStyle(size: 12, color: cs.onSurfaceVariant),
                 ),
-              ),
-            ],
+                const Spacer(),
+                Text(
+                  'up to 5 people',
+                  style: monoStyle(size: 12, color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

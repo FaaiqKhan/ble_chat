@@ -1,4 +1,5 @@
 import 'package:ble_chat/domain/repository/bluetooth_permission_repository.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class BluetoothPermissionRepositoryImpl
@@ -6,6 +7,8 @@ class BluetoothPermissionRepositoryImpl
   const BluetoothPermissionRepositoryImpl({required this.isAndroid});
 
   final bool isAndroid;
+
+  static const _channel = MethodChannel('bluetoothPermission');
 
   // Android 12+ splits Bluetooth into scan / connect / advertise;
   // iOS has a single Bluetooth permission.
@@ -19,14 +22,17 @@ class BluetoothPermissionRepositoryImpl
 
   @override
   Future<BluetoothPermissionStatus> checkBluetoothPermission() async {
-    if (await _isBluetoothOff()) return BluetoothPermissionStatus.bluetoothOff;
     return _resolve([for (final p in _permissions) await p.status]);
   }
 
   @override
   Future<BluetoothPermissionStatus> requestBluetoothPermission() async {
-    if (await _isBluetoothOff()) return BluetoothPermissionStatus.bluetoothOff;
     return _resolve((await _permissions.request()).values);
+  }
+
+  @override
+  Future<void> openBluetoothSettings() async {
+    if (isAndroid) await _channel.invokeMethod<void>('openBluetoothSettings');
   }
 
   @override
@@ -34,16 +40,17 @@ class BluetoothPermissionRepositoryImpl
     await openAppSettings();
   }
 
-  Future<bool> _isBluetoothOff() async =>
-      await Permission.bluetooth.serviceStatus != ServiceStatus.enabled;
+  @override
+  Future<bool> checkBluetoothIsOn() async =>
+      await Permission.bluetooth.serviceStatus == ServiceStatus.enabled;
 
   BluetoothPermissionStatus _resolve(Iterable<PermissionStatus> statuses) {
     if (statuses.every((s) => s.isGranted || s.isLimited)) {
-      return BluetoothPermissionStatus.granted;
+      return BluetoothPermissionStatus.permissionGranted;
     }
     if (statuses.any((s) => s.isPermanentlyDenied || s.isRestricted)) {
-      return BluetoothPermissionStatus.permanentlyDenied;
+      return BluetoothPermissionStatus.permissionPermanentlyDenied;
     }
-    return BluetoothPermissionStatus.denied;
+    return BluetoothPermissionStatus.permissionDenied;
   }
 }

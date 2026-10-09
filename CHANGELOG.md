@@ -1,5 +1,21 @@
 # Changelog
 
+# [1.2.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.1.0...v1.2.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* missing dependnecy of build runner ([3c1bfe3](https://github.com/FaaiqKhan/ble_chat/commit/3c1bfe324cb3fefdb3557491fd2b9b5ddf2837d8))
+* unused function removed ([679fbef](https://github.com/FaaiqKhan/ble_chat/commit/679fbefa7b5ce3b7d7b2c4388192df8feb92c98e))
+
+
+### Features
+
+* handling of bluetooth permissions and status ([bd0f225](https://github.com/FaaiqKhan/ble_chat/commit/bd0f2252fd5ee8594fc5d1da1729605e8558336e))
+* permission handling updates and UI fixes ([d831e43](https://github.com/FaaiqKhan/ble_chat/commit/d831e4386db5ef4a5aa2e752e3fafab513957012))
+* providers added with permission handler ([9d2d9ca](https://github.com/FaaiqKhan/ble_chat/commit/9d2d9cac834f8754fb6f90ecfe42a8c3fa63232d))
+* **ui:** bluetooth banner with color fixes ([e9d743d](https://github.com/FaaiqKhan/ble_chat/commit/e9d743d1566bd03a77d640466de897fecc711435))
+
 # [1.1.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.0.0...v1.1.0) (2026-10-07)
 
 

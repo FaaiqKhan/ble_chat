@@ -63,8 +63,4 @@ class BluetoothPermissionRepositoryImpl
   Future<void> openSettings() async {
     await openAppSettings();
   }
-
-  @override
-  Future<bool> checkBluetoothIsOn() async =>
-      await Permission.bluetooth.serviceStatus == ServiceStatus.enabled;
 }

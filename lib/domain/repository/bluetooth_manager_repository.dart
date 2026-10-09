@@ -11,9 +11,6 @@ abstract class BluetoothPermissionRepository {
   /// Shows the system permission prompt, unless Bluetooth is off.
   Future<BluetoothPermissionStatus> requestBluetoothPermission();
 
-  /// Reads the current status whether the bluetooth is off/on.
-  Future<bool> checkBluetoothIsOn();
-
   /// Emits whether Bluetooth is on, starting with the current value and
   /// following every change. Transitional states count as their target.
   Stream<bool> watchBluetoothIsOn();

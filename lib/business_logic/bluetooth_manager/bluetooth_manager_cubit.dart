@@ -12,7 +12,7 @@ class BluetoothPermissionCubit extends Cubit<BluetoothPermissionState> {
     _init();
   }
 
-  final BluetoothPermissionRepository _repo;
+  final BluetoothManagerRepository _repo;
   StreamSubscription<bool>? _bluetoothSub;
 
   @override

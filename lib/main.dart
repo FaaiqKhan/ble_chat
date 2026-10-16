@@ -15,8 +15,31 @@ void main() {
   runApp(const MyApp());
 }
 
-Widget _withGap(Widget banner) =>
-    Column(children: [banner, const SizedBox(height: 18)]);
+Widget _bluetoothBannerHandler(
+  BuildContext context,
+  BluetoothPermissionState state,
+) {
+  String? title;
+  VoidCallback? onTap;
+
+  switch (state.status) {
+    case BluetoothPermissionStatus.permissionGranted
+        when (state.isBluetoothOn == false):
+      title = "Bluetooth is off";
+      onTap = context.read<BluetoothPermissionCubit>().enableBluetooth;
+    case null:
+    case BluetoothPermissionStatus.permissionGranted:
+      return const SizedBox.shrink();
+    case BluetoothPermissionStatus.permissionDenied:
+    case BluetoothPermissionStatus.permissionPermanentlyDenied:
+      title = "Bluetooth permission denied";
+      onTap = context.read<BluetoothPermissionCubit>().request;
+  }
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 18),
+    child: BluetoothBanner(title: title, onTap: onTap),
+  );
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -24,12 +47,12 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider<BluetoothPermissionRepository>(
+    return RepositoryProvider<BluetoothManagerRepository>(
       create: (_) =>
-          BluetoothPermissionRepositoryImpl(isAndroid: Platform.isAndroid),
+          BluetoothManagerRepositoryImpl(isAndroid: Platform.isAndroid),
       child: BlocProvider(
         create: (context) => BluetoothPermissionCubit(
-          context.read<BluetoothPermissionRepository>(),
+          context.read<BluetoothManagerRepository>(),
         ),
         child: MaterialApp(
           title: 'Flutter Demo',
@@ -37,48 +60,12 @@ class MyApp extends StatelessWidget {
           darkTheme: AppTheme.dark,
           builder: (context, child) =>
               BlocBuilder<BluetoothPermissionCubit, BluetoothPermissionState>(
-                builder: (context, state) {
-                  final isDenied =
-                      state.status ==
-                          BluetoothPermissionStatus.permissionDenied ||
-                      state.status ==
-                          BluetoothPermissionStatus.permissionPermanentlyDenied;
-                  final isGranted =
-                      state.status ==
-                      BluetoothPermissionStatus.permissionGranted;
-                  return SafeArea(
-                    child: Container(
-                      color: Theme.of(context).colorScheme.surface,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 18,
-                      ),
-                      child: Column(
-                        children: [
-                          if (isDenied)
-                            _withGap(
-                              BluetoothBanner(
-                                title: 'Bluetooth permission denied',
-                                onTap: context
-                                    .read<BluetoothPermissionCubit>()
-                                    .request,
-                              ),
-                            )
-                          else if (isGranted && state.isBluetoothOn == false)
-                            _withGap(
-                              BluetoothBanner(
-                                title: 'Bluetooth is off',
-                                onTap: context
-                                    .read<BluetoothPermissionCubit>()
-                                    .enableBluetooth,
-                              ),
-                            ),
-                          Expanded(child: child!),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                builder: (context, state) => Column(
+                  children: [
+                    _bluetoothBannerHandler(context, state),
+                    Expanded(child: child!),
+                  ],
+                ),
               ),
           home: const HomeScreen(),
         ),

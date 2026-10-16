@@ -4,7 +4,7 @@ enum BluetoothPermissionStatus {
   permissionPermanentlyDenied,
 }
 
-abstract class BluetoothPermissionRepository {
+abstract class BluetoothManagerRepository {
   /// Reads the current status without prompting.
   Future<BluetoothPermissionStatus> checkBluetoothPermission();
 

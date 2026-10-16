@@ -46,31 +46,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         false;
 
     return Scaffold(
-      body: SingleChildScrollView(
-        clipBehavior: Clip.none,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'WORKS WITHOUT INTERNET',
-              style: monoStyle(
-                size: 11,
-                weight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-              ).copyWith(letterSpacing: 11 * 0.08),
-            ),
-            const SizedBox(height: 8),
-            Text('Local Room', style: tt.displayMedium),
-            const SizedBox(height: 8),
-            Text(
-              'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
-              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 18),
-            _RoleCard.host(enabled: isBluetoothReady, onTap: widget.onHost),
-            const SizedBox(height: 14),
-            _RoleCard.join(enabled: isBluetoothReady, onTap: widget.onJoin),
-          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+          clipBehavior: Clip.none,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'WORKS WITHOUT INTERNET',
+                style: monoStyle(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ).copyWith(letterSpacing: 11 * 0.08),
+              ),
+              const SizedBox(height: 8),
+              Text('Local Room', style: tt.displayMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Chat with people near you using Bluetooth. No internet or account needed. Up to 5 people per room.',
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              ),
+              const SizedBox(height: 18),
+              _RoleCard.host(enabled: isBluetoothReady, onTap: widget.onHost),
+              const SizedBox(height: 14),
+              _RoleCard.join(enabled: isBluetoothReady, onTap: widget.onJoin),
+            ],
+          ),
         ),
       ),
     );

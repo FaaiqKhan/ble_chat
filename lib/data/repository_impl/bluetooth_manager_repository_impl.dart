@@ -2,9 +2,8 @@ import 'package:ble_chat/domain/repository/bluetooth_manager_repository.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class BluetoothPermissionRepositoryImpl
-    implements BluetoothPermissionRepository {
-  const BluetoothPermissionRepositoryImpl({required this.isAndroid});
+class BluetoothManagerRepositoryImpl implements BluetoothManagerRepository {
+  const BluetoothManagerRepositoryImpl({required this.isAndroid});
 
   final bool isAndroid;
 

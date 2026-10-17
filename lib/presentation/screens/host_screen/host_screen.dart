@@ -1,6 +1,7 @@
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
+import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
@@ -25,14 +26,6 @@ class HostParticipant {
   final int rssi;
   final bool reconnecting;
 }
-
-enum _Signal { good, weak, poor }
-
-_Signal _signalOf(int rssi) => rssi >= -70
-    ? _Signal.good
-    : rssi >= -85
-    ? _Signal.weak
-    : _Signal.poor;
 
 class HostScreen extends StatelessWidget {
   const HostScreen({
@@ -468,10 +461,10 @@ class _MemberRow extends StatelessWidget {
         ? "waiting for someone to join"
         : reconnecting
         ? "connection lost · trying again…"
-        : switch (_signalOf(p!.rssi)) {
-            _Signal.good => "Strong signal",
-            _Signal.weak => "Weak signal",
-            _Signal.poor => "Very weak signal",
+        : switch (bluetoothSignalOf(p!.rssi)) {
+            BluetoothSignal.good => "Strong signal",
+            BluetoothSignal.weak => "Weak signal",
+            BluetoothSignal.poor => "Very weak signal",
           };
     final initial = isEmpty ? "+" : (isHost ? _name! : p!.name)[0];
 
@@ -611,10 +604,10 @@ class _SignalBars extends StatelessWidget {
         : rssi >= -90
         ? 1
         : 0;
-    final color = switch (_signalOf(rssi)) {
-      _Signal.good => palette.success,
-      _Signal.weak => palette.warning,
-      _Signal.poor => palette.error,
+    final color = switch (bluetoothSignalOf(rssi)) {
+      BluetoothSignal.good => palette.success,
+      BluetoothSignal.weak => palette.warning,
+      BluetoothSignal.poor => palette.error,
     };
 
     return SizedBox(

@@ -36,13 +36,11 @@ class HostScreen extends StatelessWidget {
   const HostScreen({
     super.key,
     this.hostName = 'You',
-    this.participants = const [],
     this.bluetoothOn = true,
     this.onOpenChat,
   });
 
   final String hostName;
-  final List<HostParticipant> participants;
   final bool bluetoothOn;
 
   /// Called when the host opens the chat; only reachable once someone joined.
@@ -52,14 +50,13 @@ class HostScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final hasPeer = participants.isNotEmpty;
 
     final hostSessionBloc = context.read<HostSessionBloc>();
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) confirmClose(context, participants);
+        if (!didPop) confirmClose(context, hostSessionBloc.state.participants);
       },
       child: Scaffold(
         body: SafeArea(
@@ -124,7 +121,8 @@ class HostScreen extends StatelessWidget {
                         size: SpacerBoxSize.medium,
                       ),
                       _MemberRow.host(name: hostName),
-                      for (final p in participants) _MemberRow.guest(p),
+                      for (final p in hostSessionBloc.state.participants)
+                        _MemberRow.guest(p),
                       for (var i = 0; i < hostSessionBloc.isOpen; i++)
                         const _MemberRow.empty(),
                     ],
@@ -137,7 +135,10 @@ class HostScreen extends StatelessWidget {
                 Row(
                   children: [
                     OutlinedButton(
-                      onPressed: () => confirmClose(context, participants),
+                      onPressed: () => confirmClose(
+                        context,
+                        hostSessionBloc.state.participants,
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: context.palette.error,
                         side: BorderSide(
@@ -153,7 +154,7 @@ class HostScreen extends StatelessWidget {
                     ),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: hasPeer ? onOpenChat : null,
+                        onPressed: hostSessionBloc.hasPeer ? onOpenChat : null,
                         style: ElevatedButton.styleFrom(
                           disabledBackgroundColor: cs.outline,
                           disabledForegroundColor: cs.onSurfaceVariant,

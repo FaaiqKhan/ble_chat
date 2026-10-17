@@ -16,6 +16,8 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
 
   int get isOpen => (state.maxPeople - count).clamp(0, state.maxPeople);
 
+  bool get hasPeer => state.participants.isNotEmpty;
+
   void _onStartHostingEvent(
     StartHostingEvent event,
     Emitter<HostSessionState> emit,

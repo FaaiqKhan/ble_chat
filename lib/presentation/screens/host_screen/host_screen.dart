@@ -1,10 +1,14 @@
+import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
+import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
+import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// A guest connected to the room. [rssi] drives the signal bars; a
 /// [reconnecting] guest shows a spinner instead.
@@ -31,18 +35,12 @@ _Signal _signalOf(int rssi) => rssi >= -70
 class HostScreen extends StatelessWidget {
   const HostScreen({
     super.key,
-    required this.roomName,
-    required this.code,
-    required this.maxPeople,
     this.hostName = 'You',
     this.participants = const [],
     this.bluetoothOn = true,
     this.onOpenChat,
   });
 
-  final String roomName;
-  final String code;
-  final int maxPeople;
   final String hostName;
   final List<HostParticipant> participants;
   final bool bluetoothOn;
@@ -50,39 +48,18 @@ class HostScreen extends StatelessWidget {
   /// Called when the host opens the chat; only reachable once someone joined.
   final VoidCallback? onOpenChat;
 
-  int get _count => participants.length + 1;
-
-  bool get _full => _count >= maxPeople;
-
-  int get _open => (maxPeople - _count).clamp(0, maxPeople);
-
-  Future<void> _confirmClose(BuildContext context) async {
-    final close = await showModalBottomSheet<bool>(
-      context: context,
-      showDragHandle: true,
-      builder: (_) => _CloseRoomSheet(
-        others: participants.isEmpty
-            ? 'anyone who joins'
-            : participants.length == 1
-            ? '1 person'
-            : '${participants.length} people',
-      ),
-    );
-    if (close == true && context.mounted) {
-      Navigator.of(context).popUntil((r) => r.isFirst);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final hasPeer = participants.isNotEmpty;
 
+    final hostSessionBloc = context.read<HostSessionBloc>();
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _confirmClose(context);
+        if (!didPop) confirmClose(context, participants);
       },
       child: Scaffold(
         body: SafeArea(
@@ -97,7 +74,10 @@ class HostScreen extends StatelessWidget {
                       "HOSTING",
                       style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
                     ),
-                    _StatusChip(full: _full, stopped: !bluetoothOn),
+                    HostRoomStatusChip(
+                      full: hostSessionBloc.isFull,
+                      stopped: !bluetoothOn,
+                    ),
                   ],
                 ),
                 const SpacerBox(
@@ -107,26 +87,36 @@ class HostScreen extends StatelessWidget {
                 Expanded(
                   child: ListView(
                     children: [
-                      HostRoomLabelCard(name: roomName, code: code),
+                      HostRoomLabelCard(
+                        name: hostSessionBloc.state.roomName,
+                        code: hostSessionBloc.state.code,
+                      ),
                       const SpacerBox(
                         type: SpacerBoxType.vertical,
                         size: SpacerBoxSize.medium,
                       ),
-                      _CountCard(count: _count, max: maxPeople),
+                      _CountCard(
+                        count: hostSessionBloc.count,
+                        max: hostSessionBloc.state.maxPeople,
+                      ),
                       const SpacerBox(
                         type: SpacerBoxType.vertical,
                         size: SpacerBoxSize.medium,
                       ),
-                      if (_full)
+                      if (hostSessionBloc.isFull)
                         const _FullBanner()
                       else
-                        _WaitingBanner(open: _open, label: "$roomName · $code"),
+                        _WaitingBanner(
+                          open: hostSessionBloc.isOpen,
+                          label:
+                              "${hostSessionBloc.state.roomName} · ${hostSessionBloc.state.code}",
+                        ),
                       const SpacerBox(
                         type: SpacerBoxType.vertical,
                         size: SpacerBoxSize.large,
                       ),
                       Text(
-                        "CONNECTED · $_count",
+                        "CONNECTED · ${hostSessionBloc.count}",
                         style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
                       ),
                       const SpacerBox(
@@ -135,7 +125,8 @@ class HostScreen extends StatelessWidget {
                       ),
                       _MemberRow.host(name: hostName),
                       for (final p in participants) _MemberRow.guest(p),
-                      for (var i = 0; i < _open; i++) const _MemberRow.empty(),
+                      for (var i = 0; i < hostSessionBloc.isOpen; i++)
+                        const _MemberRow.empty(),
                     ],
                   ),
                 ),
@@ -146,7 +137,7 @@ class HostScreen extends StatelessWidget {
                 Row(
                   children: [
                     OutlinedButton(
-                      onPressed: () => _confirmClose(context),
+                      onPressed: () => confirmClose(context, participants),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: context.palette.error,
                         side: BorderSide(
@@ -176,75 +167,6 @@ class HostScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatefulWidget {
-  const _StatusChip({required this.full, required this.stopped});
-
-  final bool full;
-  final bool stopped;
-
-  @override
-  State<_StatusChip> createState() => _StatusChipState();
-}
-
-class _StatusChipState extends State<_StatusChip>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _blink = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _blink.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final (label, bg, fg, dot) = widget.full
-        ? ("FULL", palette.fullBg, Colors.white, Colors.white)
-        : widget.stopped
-        ? ("STOPPED", palette.errorSoft, palette.error, palette.error)
-        : ("OPEN TO JOIN", palette.successSoft, palette.okFg, palette.success);
-    final animate = !widget.full && !widget.stopped;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FadeTransition(
-            opacity: animate
-                ? Tween(begin: 1.0, end: 0.25).animate(_blink)
-                : const AlwaysStoppedAnimation(1.0),
-            child: Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppFonts.mono,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: fg,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -712,53 +634,5 @@ class _DashedPainter extends BoxPainter {
         canvas.drawPath(metric.extractPath(d, d + 6), paint);
       }
     }
-  }
-}
-
-class _CloseRoomSheet extends StatelessWidget {
-  const _CloseRoomSheet({required this.others});
-
-  final String others;
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final palette = context.palette;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Close this room?", style: tt.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              "This disconnects $others and stops advertising. The room can't "
-              "be reopened with the same code.",
-              style: tt.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(backgroundColor: palette.error),
-                child: const Text("Close Room"),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text("Keep Hosting"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

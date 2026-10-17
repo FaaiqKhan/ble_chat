@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/common/constants.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
@@ -44,6 +45,24 @@ class _CreateRoomState extends State<CreateRoom> {
   void dispose() {
     controller.dispose();
     super.dispose();
+  }
+
+  void _startHosting() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => HostSessionBloc(
+            HostSessionState(
+              code: code,
+              roomName: _name,
+              maxPeople: maxPeople,
+              status: HostSessionStatus.starting,
+            ),
+          )..add(StartHostingEvent()),
+          child: HostScreen(),
+        ),
+      ),
+    );
   }
 
   String get _name => controller.text.trim();
@@ -222,20 +241,7 @@ class _CreateRoomState extends State<CreateRoom> {
                       setState(() => touched = true);
                       return;
                     }
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => BlocProvider(
-                          create: (_) => HostSessionBloc(
-                            HostSessionState(
-                              code: code,
-                              roomName: _name,
-                              maxPeople: maxPeople,
-                            ),
-                          ),
-                          child: HostScreen(),
-                        ),
-                      ),
-                    );
+                    _startHosting();
                   },
                   style: canStart
                       ? ElevatedButton.styleFrom(

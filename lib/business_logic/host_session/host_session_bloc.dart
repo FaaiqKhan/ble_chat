@@ -3,7 +3,7 @@ import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
-  new(super.initialState) {
+  HostSessionBloc(super.initialState) {
     on<StartHostingEvent>(_onStartHostingEvent);
     on<CloseRoomEvent>(_onCloseRoomEvent);
     on<PeerJoinedEvent>(_onPeerJoinedEvent);

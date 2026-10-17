@@ -1,3 +1,4 @@
+import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -7,10 +8,12 @@ class HostRoomStatusChip extends StatefulWidget {
     super.key,
     required this.full,
     required this.stopped,
+    required this.status,
   });
 
   final bool full;
   final bool stopped;
+  final HostSessionStatus status;
 
   @override
   State<HostRoomStatusChip> createState() => _HostRoomStatusChipState();
@@ -32,12 +35,43 @@ class _HostRoomStatusChipState extends State<HostRoomStatusChip>
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final (label, bg, fg, dot) = widget.full
-        ? ("FULL", palette.fullBg, Colors.white, Colors.white)
-        : widget.stopped
-        ? ("STOPPED", palette.errorSoft, palette.error, palette.error)
-        : ("OPEN TO JOIN", palette.successSoft, palette.okFg, palette.success);
-    final animate = !widget.full && !widget.stopped;
+    final (label, bg, fg, dot, opacity) = switch (widget.status) {
+      HostSessionStatus.idle => (
+        "IDLE",
+        palette.fullBg,
+        Colors.white,
+        Colors.white,
+        const AlwaysStoppedAnimation(1.0),
+      ),
+      HostSessionStatus.starting || HostSessionStatus.closing => (
+        widget.status == HostSessionStatus.starting ? "STARTING" : "CLOSING",
+        palette.warningSoft,
+        palette.warning,
+        palette.warning,
+        const AlwaysStoppedAnimation(1.0),
+      ),
+      HostSessionStatus.hosting when widget.full => (
+        "FULL",
+        palette.fullBg,
+        Colors.white,
+        Colors.white,
+        const AlwaysStoppedAnimation(1.0),
+      ),
+      HostSessionStatus.hosting => (
+        "OPEN TO JOIN",
+        palette.successSoft,
+        palette.success,
+        palette.success,
+        Tween(begin: 1.0, end: 0.15).animate(_blink),
+      ),
+      HostSessionStatus.closed || HostSessionStatus.failed => (
+        widget.status == HostSessionStatus.closed ? "CLOSED" : "FAILED",
+        palette.errorSoft,
+        palette.error,
+        palette.error,
+        const AlwaysStoppedAnimation(1.0),
+      ),
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -48,16 +82,29 @@ class _HostRoomStatusChipState extends State<HostRoomStatusChip>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          FadeTransition(
-            opacity: animate
-                ? Tween(begin: 1.0, end: 0.15).animate(_blink)
-                : const AlwaysStoppedAnimation(1.0),
-            child: Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-            ),
-          ),
+          widget.status == HostSessionStatus.starting ||
+                  widget.status == HostSessionStatus.closing
+              ? CircularProgressIndicator(
+                  color: dot,
+                  strokeWidth: 2,
+                  constraints: BoxConstraints(
+                    minWidth: 14,
+                    minHeight: 14,
+                    maxWidth: 14,
+                    maxHeight: 14,
+                  ),
+                )
+              : FadeTransition(
+                  opacity: opacity,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: dot,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
           const SizedBox(width: 7),
           Text(
             label,

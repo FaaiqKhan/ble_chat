@@ -1,4 +1,6 @@
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
@@ -62,109 +64,148 @@ class HostScreen extends StatelessWidget {
         body: SafeArea(
           child: Padding(
             padding: AppPadding.portraitScreen,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: BlocBuilder<HostSessionBloc, HostSessionState>(
+              builder: (context, state) {
+                final starting = state.status == HostSessionStatus.starting;
+                final failed = state.status == HostSessionStatus.failed;
+                final inStartup = starting || failed;
+                return Column(
                   children: [
-                    Text(
-                      "HOSTING",
-                      style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-                    ),
-                    HostRoomStatusChip(
-                      full: hostSessionBloc.isFull,
-                      stopped: !bluetoothOn,
-                    ),
-                  ],
-                ),
-                const SpacerBox(
-                  type: SpacerBoxType.vertical,
-                  size: SpacerBoxSize.medium,
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      HostRoomLabelCard(
-                        name: hostSessionBloc.state.roomName,
-                        code: hostSessionBloc.state.code,
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      _CountCard(
-                        count: hostSessionBloc.count,
-                        max: hostSessionBloc.state.maxPeople,
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      if (hostSessionBloc.isFull)
-                        const _FullBanner()
-                      else
-                        _WaitingBanner(
-                          open: hostSessionBloc.isOpen,
-                          label:
-                              "${hostSessionBloc.state.roomName} · ${hostSessionBloc.state.code}",
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "HOSTING",
+                          style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
                         ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.large,
-                      ),
-                      Text(
-                        "CONNECTED · ${hostSessionBloc.count}",
-                        style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      _MemberRow.host(name: hostName),
-                      for (final p in hostSessionBloc.state.participants)
-                        _MemberRow.guest(p),
-                      for (var i = 0; i < hostSessionBloc.isOpen; i++)
-                        const _MemberRow.empty(),
-                    ],
-                  ),
-                ),
-                const SpacerBox(
-                  type: SpacerBoxType.vertical,
-                  size: SpacerBoxSize.medium,
-                ),
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => confirmClose(
-                        context,
-                        hostSessionBloc.state.participants,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: context.palette.error,
-                        side: BorderSide(
-                          color: context.palette.error,
-                          width: 1.5,
+                        BlocSelector<
+                          HostSessionBloc,
+                          HostSessionState,
+                          HostSessionStatus
+                        >(
+                          selector: (select) => select.status,
+                          builder: (_, status) {
+                            return HostRoomStatusChip(
+                              status: status,
+                              full: hostSessionBloc.isFull,
+                              stopped: !bluetoothOn,
+                            );
+                          },
                         ),
-                      ),
-                      child: const Text("Close Room"),
+                      ],
                     ),
                     const SpacerBox(
-                      type: SpacerBoxType.horizontal,
-                      size: SpacerBoxSize.large,
+                      type: SpacerBoxType.vertical,
+                      size: SpacerBoxSize.medium,
                     ),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: hostSessionBloc.hasPeer ? onOpenChat : null,
-                        style: ElevatedButton.styleFrom(
-                          disabledBackgroundColor: cs.outline,
-                          disabledForegroundColor: cs.onSurfaceVariant,
-                        ),
-                        child: const Text("Open Chat"),
+                      child: ListView(
+                        children: [
+                          HostRoomLabelCard(
+                            name: hostSessionBloc.state.roomName,
+                            code: hostSessionBloc.state.code,
+                          ),
+                          const SpacerBox(
+                            type: SpacerBoxType.vertical,
+                            size: SpacerBoxSize.medium,
+                          ),
+                          _CountCard(
+                            count: hostSessionBloc.count,
+                            max: hostSessionBloc.state.maxPeople,
+                          ),
+                          const SpacerBox(
+                            type: SpacerBoxType.vertical,
+                            size: SpacerBoxSize.medium,
+                          ),
+                          if (failed)
+                            const _FailedBanner()
+                          else if (starting)
+                            const SizedBox.shrink()
+                          else if (hostSessionBloc.isFull)
+                            const _FullBanner()
+                          else
+                            _WaitingBanner(
+                              open: hostSessionBloc.isOpen,
+                              label:
+                                  "${hostSessionBloc.state.roomName} · ${hostSessionBloc.state.code}",
+                            ),
+                          const SpacerBox(
+                            type: SpacerBoxType.vertical,
+                            size: SpacerBoxSize.large,
+                          ),
+                          if (inStartup)
+                            _StartSteps(
+                              current: state.startStep,
+                              failedStep: failed
+                                  ? (state.failedStep ?? 0)
+                                  : null,
+                            )
+                          else ...[
+                            Text(
+                              "CONNECTED · ${hostSessionBloc.count}",
+                              style: tt.labelSmall?.copyWith(
+                                letterSpacing: 0.88,
+                              ),
+                            ),
+                            const SpacerBox(
+                              type: SpacerBoxType.vertical,
+                              size: SpacerBoxSize.medium,
+                            ),
+                            _MemberRow.host(name: hostName),
+                            for (final p in hostSessionBloc.state.participants)
+                              _MemberRow.guest(p),
+                            for (var i = 0; i < hostSessionBloc.isOpen; i++)
+                              const _MemberRow.empty(),
+                          ],
+                        ],
                       ),
                     ),
+                    const SpacerBox(
+                      type: SpacerBoxType.vertical,
+                      size: SpacerBoxSize.medium,
+                    ),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: failed
+                              ? Navigator.of(context).pop
+                              : () => confirmClose(context, state.participants),
+                          style: failed
+                              ? OutlinedButton.styleFrom(
+                                  foregroundColor: context.palette.ctaFg,
+                                )
+                              : OutlinedButton.styleFrom(
+                                  foregroundColor: context.palette.error,
+                                  side: BorderSide(
+                                    color: context.palette.error,
+                                    width: 1.5,
+                                  ),
+                                ),
+                          child: Text(failed ? "Back to Setup" : "Close Room"),
+                        ),
+                        const SpacerBox(
+                          type: SpacerBoxType.horizontal,
+                          size: SpacerBoxSize.large,
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: failed
+                                ? () => hostSessionBloc.add(StartHostingEvent())
+                                : hostSessionBloc.hasPeer
+                                ? onOpenChat
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              disabledBackgroundColor: cs.outline,
+                              disabledForegroundColor: cs.onSurfaceVariant,
+                            ),
+                            child: Text(failed ? "Try Again" : "Open Chat"),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -635,5 +676,236 @@ class _DashedPainter extends BoxPainter {
         canvas.drawPath(metric.extractPath(d, d + 6), paint);
       }
     }
+  }
+}
+
+class _FailedBanner extends StatelessWidget {
+  const _FailedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: palette.errorSoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: palette.error, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: palette.badFg, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Couldn’t start your room",
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                Text("Nearby devices can’t see it yet.", style: tt.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _StepState { done, current, pending, failed }
+
+/// The startup sequence shown until the room is advertising: Bluetooth ready,
+/// room (GATT) service created, advertising to nearby devices.
+class _StartSteps extends StatelessWidget {
+  const _StartSteps({required this.current, required this.failedStep});
+
+  static const _labels = [
+    'Bluetooth ready',
+    'Creating room service',
+    'Advertising to nearby devices',
+  ];
+
+  final int current;
+  final int? failedStep;
+
+  _StepState _stateOf(int i) {
+    final failed = failedStep;
+    if (failed != null) {
+      return i < failed
+          ? _StepState.done
+          : i == failed
+          ? _StepState.failed
+          : _StepState.pending;
+    }
+    return i < current
+        ? _StepState.done
+        : i == current
+        ? _StepState.current
+        : _StepState.pending;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          failedStep != null ? "WHAT HAPPENED" : "STARTING YOUR ROOM",
+          style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: cs.outlineVariant),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < _labels.length; i++)
+                  _StepRow(
+                    label: _labels[i],
+                    state: _stateOf(i),
+                    first: i == 0,
+                    palette: palette,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          failedStep != null
+              ? "Nothing is visible to nearby devices yet."
+              : "Keep this screen open. This usually takes a few seconds.",
+          style: tt.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.label,
+    required this.state,
+    required this.first,
+    required this.palette,
+  });
+
+  final String label;
+  final _StepState state;
+  final bool first;
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    final (ring, fill, fg, tag, tagFg, bg) = switch (state) {
+      _StepState.done => (
+        palette.okFg,
+        palette.successSoft,
+        cs.onSurface,
+        "DONE",
+        palette.okFg,
+        Colors.transparent,
+      ),
+      _StepState.current => (
+        palette.primaryBorder,
+        palette.primarySoft,
+        cs.onSurface,
+        "NOW",
+        palette.primaryFg,
+        palette.primarySoft,
+      ),
+      _StepState.pending => (
+        cs.outline,
+        Colors.transparent,
+        cs.onSurfaceVariant,
+        "",
+        cs.onSurfaceVariant,
+        Colors.transparent,
+      ),
+      _StepState.failed => (
+        palette.badFg,
+        palette.errorSoft,
+        palette.badFg,
+        "FAILED",
+        palette.badFg,
+        palette.errorSoft,
+      ),
+    };
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: bg,
+        border: first
+            ? null
+            : Border(top: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: fill,
+              border: Border.all(color: ring, width: 2),
+            ),
+            child: switch (state) {
+              _StepState.done => Icon(
+                Icons.check,
+                size: 14,
+                color: palette.okFg,
+              ),
+              _StepState.failed => Icon(
+                Icons.close,
+                size: 12,
+                color: palette.badFg,
+              ),
+              _StepState.current => SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: palette.primaryFg,
+                  backgroundColor: palette.primaryBorder,
+                ),
+              ),
+              _StepState.pending => null,
+            },
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label, style: tt.titleSmall?.copyWith(color: fg)),
+          ),
+          Text(
+            tag,
+            style: TextStyle(
+              fontFamily: AppFonts.mono,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: tagFg,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

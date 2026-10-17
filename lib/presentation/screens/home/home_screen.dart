@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/screens/create_room/create_room.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -6,16 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.onHost, this.onJoin});
-
-  final VoidCallback? onHost;
-  final VoidCallback? onJoin;
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  void onHost() =>
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => CreateRoom()));
+
+  void onJoin() {}
+
   @override
   void initState() {
     super.initState();
@@ -69,9 +73,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 18),
-              _RoleCard.host(enabled: isBluetoothReady, onTap: widget.onHost),
+              _RoleCard.host(enabled: isBluetoothReady, onTap: onHost),
               const SizedBox(height: 14),
-              _RoleCard.join(enabled: isBluetoothReady, onTap: widget.onJoin),
+              _RoleCard.join(enabled: isBluetoothReady, onTap: onJoin),
             ],
           ),
         ),

@@ -7,6 +7,7 @@ import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/max_people_option.dart';
 import 'package:ble_chat/presentation/common/room_lable_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -219,7 +220,15 @@ class _CreateRoomState extends State<CreateRoom> {
                       setState(() => touched = true);
                       return;
                     }
-                    // TODO(hosting): navigate to the hosting screen.
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => HostScreen(
+                          roomName: _name,
+                          code: code,
+                          maxPeople: maxPeople,
+                        ),
+                      ),
+                    );
                   },
                   style: canStart
                       ? ElevatedButton.styleFrom(

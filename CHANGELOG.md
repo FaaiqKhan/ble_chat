@@ -1,5 +1,14 @@
 # Changelog
 
+# [1.3.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.2.1...v1.3.0) (2026-10-17)
+
+
+### Features
+
+* host room added ([6e162a1](https://github.com/FaaiqKhan/ble_chat/commit/6e162a10eb23a571c0587ce608dfc7679887fe7b))
+* new screens ui updates ([0729f44](https://github.com/FaaiqKhan/ble_chat/commit/0729f44ad393cdc525e3b27c52b6cca63cb46aea))
+* using equatable and create room screen added ([abae16a](https://github.com/FaaiqKhan/ble_chat/commit/abae16ae23e3bab4c7020634e7ae4eefab2dd864))
+
 ## [1.2.1](https://github.com/FaaiqKhan/ble_chat/compare/v1.2.0...v1.2.1) (2026-10-16)
 
 # [1.2.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.1.0...v1.2.0) (2026-10-09)

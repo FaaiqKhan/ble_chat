@@ -249,19 +249,6 @@ class _CreateRoomState extends State<CreateRoom> {
                   child: const Text("Start Hosting"),
                 ),
               ),
-              const SpacerBox(
-                type: SpacerBoxType.vertical,
-                size: SpacerBoxSize.small,
-              ),
-              Text(
-                !isBluetoothReady
-                    ? "Turn on Bluetooth to start your room"
-                    : error != null
-                    ? "Fix the room name to continue"
-                    : "People nearby can find your room right away",
-                style: tt.bodySmall,
-                textAlign: TextAlign.center,
-              ),
             ],
           ),
         ),

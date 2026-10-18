@@ -1,9 +1,14 @@
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
+import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
+import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/host_screen/widgets/host_room_setting_up.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -24,14 +29,6 @@ class HostParticipant {
   final bool reconnecting;
 }
 
-enum _Signal { good, weak, poor }
-
-_Signal _signalOf(int rssi) => rssi >= -70
-    ? _Signal.good
-    : rssi >= -85
-    ? _Signal.weak
-    : _Signal.poor;
-
 class HostScreen extends StatelessWidget {
   const HostScreen({
     super.key,
@@ -46,6 +43,12 @@ class HostScreen extends StatelessWidget {
   /// Called when the host opens the chat; only reachable once someone joined.
   final VoidCallback? onOpenChat;
 
+  void handleRoomClose(BuildContext context, HostSessionBloc bloc) {
+    confirmClose(context, bloc.state.participants).then((value) {
+      if (value) bloc.add(CloseRoomEvent());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
@@ -56,115 +59,199 @@ class HostScreen extends StatelessWidget {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) confirmClose(context, hostSessionBloc.state.participants);
+        if (!didPop) handleRoomClose(context, hostSessionBloc);
       },
       child: Scaffold(
         body: SafeArea(
           child: Padding(
             padding: AppPadding.portraitScreen,
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: BlocBuilder<HostSessionBloc, HostSessionState>(
+              builder: (context, state) {
+                final failed = state.status == HostSessionStatus.failed;
+                final closeFailed =
+                    state.status == HostSessionStatus.closeFailed;
+                final inStartup =
+                    state.status == HostSessionStatus.idle ||
+                    state.status == HostSessionStatus.starting;
+                return Column(
                   children: [
-                    Text(
-                      "HOSTING",
-                      style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-                    ),
-                    HostRoomStatusChip(
-                      full: hostSessionBloc.isFull,
-                      stopped: !bluetoothOn,
-                    ),
-                  ],
-                ),
-                const SpacerBox(
-                  type: SpacerBoxType.vertical,
-                  size: SpacerBoxSize.medium,
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      HostRoomLabelCard(
-                        name: hostSessionBloc.state.roomName,
-                        code: hostSessionBloc.state.code,
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      _CountCard(
-                        count: hostSessionBloc.count,
-                        max: hostSessionBloc.state.maxPeople,
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      if (hostSessionBloc.isFull)
-                        const _FullBanner()
-                      else
-                        _WaitingBanner(
-                          open: hostSessionBloc.isOpen,
-                          label:
-                              "${hostSessionBloc.state.roomName} · ${hostSessionBloc.state.code}",
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "HOSTING",
+                          style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
                         ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.large,
-                      ),
-                      Text(
-                        "CONNECTED · ${hostSessionBloc.count}",
-                        style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.vertical,
-                        size: SpacerBoxSize.medium,
-                      ),
-                      _MemberRow.host(name: hostName),
-                      for (final p in hostSessionBloc.state.participants)
-                        _MemberRow.guest(p),
-                      for (var i = 0; i < hostSessionBloc.isOpen; i++)
-                        const _MemberRow.empty(),
-                    ],
-                  ),
-                ),
-                const SpacerBox(
-                  type: SpacerBoxType.vertical,
-                  size: SpacerBoxSize.medium,
-                ),
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => confirmClose(
-                        context,
-                        hostSessionBloc.state.participants,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: context.palette.error,
-                        side: BorderSide(
-                          color: context.palette.error,
-                          width: 1.5,
+                        BlocSelector<
+                          HostSessionBloc,
+                          HostSessionState,
+                          HostSessionStatus
+                        >(
+                          selector: (select) => select.status,
+                          builder: (_, status) {
+                            return HostRoomStatusChip(
+                              status: status,
+                              full: hostSessionBloc.isFull,
+                              stopped: !bluetoothOn,
+                            );
+                          },
                         ),
-                      ),
-                      child: const Text("Close Room"),
+                      ],
                     ),
                     const SpacerBox(
-                      type: SpacerBoxType.horizontal,
-                      size: SpacerBoxSize.large,
+                      type: SpacerBoxType.vertical,
+                      size: SpacerBoxSize.medium,
                     ),
                     Expanded(
-                      child: ElevatedButton(
-                        onPressed: hostSessionBloc.hasPeer ? onOpenChat : null,
-                        style: ElevatedButton.styleFrom(
-                          disabledBackgroundColor: cs.outline,
-                          disabledForegroundColor: cs.onSurfaceVariant,
-                        ),
-                        child: const Text("Open Chat"),
+                      child: ListView(
+                        children: [
+                          HostRoomLabelCard(
+                            name: hostSessionBloc.state.roomName,
+                            code: hostSessionBloc.state.code,
+                          ),
+                          const SpacerBox(
+                            type: SpacerBoxType.vertical,
+                            size: SpacerBoxSize.medium,
+                          ),
+                          _CountCard(
+                            count: hostSessionBloc.count,
+                            max: hostSessionBloc.state.maxPeople,
+                          ),
+                          const SpacerBox(
+                            type: SpacerBoxType.vertical,
+                            size: SpacerBoxSize.medium,
+                          ),
+                          switch (hostSessionBloc.state.status) {
+                            // TODO: Handle this case.
+                            HostSessionStatus.idle => const SizedBox.shrink(),
+                            HostSessionStatus.starting =>
+                              const HostRoomSettingUp(),
+                            HostSessionStatus.hosting ||
+                            HostSessionStatus.closeFailed => Column(
+                              children: [
+                                if (closeFailed)
+                                  const _FailedBanner(
+                                    title: "Couldn’t close your room",
+                                    message: "Please try again.",
+                                  )
+                                else if (failed)
+                                  const _FailedBanner()
+                                else if (inStartup)
+                                  const SizedBox.shrink()
+                                else if (hostSessionBloc.isFull)
+                                  const _FullBanner()
+                                else
+                                  _WaitingBanner(
+                                    open: hostSessionBloc.isOpen,
+                                    label:
+                                        "${hostSessionBloc.state.roomName} · ${hostSessionBloc.state.code}",
+                                  ),
+                                const SpacerBox(
+                                  type: SpacerBoxType.vertical,
+                                  size: SpacerBoxSize.large,
+                                ),
+                                ...[
+                                  Text(
+                                    "CONNECTED · ${hostSessionBloc.count}",
+                                    style: tt.labelSmall?.copyWith(
+                                      letterSpacing: 0.88,
+                                    ),
+                                  ),
+                                  const SpacerBox(
+                                    type: SpacerBoxType.vertical,
+                                    size: SpacerBoxSize.medium,
+                                  ),
+                                  _MemberRow.host(name: hostName),
+                                  for (final p
+                                      in hostSessionBloc.state.participants)
+                                    _MemberRow.guest(p),
+                                  for (
+                                    var i = 0;
+                                    i < hostSessionBloc.isOpen;
+                                    i++
+                                  )
+                                    const _MemberRow.empty(),
+                                ],
+                              ],
+                            ),
+                            HostSessionStatus.closing =>
+                              BlocListener<HostSessionBloc, HostSessionState>(
+                                listener: (_, state) {
+                                  if (state.status ==
+                                      HostSessionStatus.closed) {
+                                    Navigator.of(context)
+                                        .popUntil((r) => r.isFirst);
+                                  }
+                                },
+                                child: const ClosingRoomBanner(),
+                              ),
+                            HostSessionStatus.closed => const SizedBox.shrink(),
+                            // TODO: Handle this case.
+                            HostSessionStatus.failed => const SizedBox.shrink(),
+                          },
+                        ],
                       ),
                     ),
+                    const SpacerBox(
+                      type: SpacerBoxType.vertical,
+                      size: SpacerBoxSize.medium,
+                    ),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: closeFailed
+                              ? () => hostSessionBloc.add(
+                                  DismissCloseErrorEvent(),
+                                )
+                              : failed
+                              ? Navigator.of(context).pop
+                              : () => handleRoomClose(context, hostSessionBloc),
+                          style: failed || closeFailed
+                              ? OutlinedButton.styleFrom(
+                                  foregroundColor: context.palette.ctaFg,
+                                )
+                              : OutlinedButton.styleFrom(
+                                  foregroundColor: context.palette.error,
+                                  side: BorderSide(
+                                    color: context.palette.error,
+                                    width: 1.5,
+                                  ),
+                                ),
+                          child: Text(
+                            closeFailed
+                                ? "Back"
+                                : failed
+                                ? "Back to Setup"
+                                : "Close Room",
+                          ),
+                        ),
+                        const SpacerBox(
+                          type: SpacerBoxType.horizontal,
+                          size: SpacerBoxSize.large,
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: closeFailed
+                                ? () => hostSessionBloc.add(CloseRoomEvent())
+                                : failed
+                                ? () => hostSessionBloc.add(StartHostingEvent())
+                                : hostSessionBloc.hasPeer
+                                ? onOpenChat
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              disabledBackgroundColor: cs.outline,
+                              disabledForegroundColor: cs.onSurfaceVariant,
+                            ),
+                            child: Text(
+                              failed || closeFailed ? "Try Again" : "Open Chat",
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -427,10 +514,10 @@ class _MemberRow extends StatelessWidget {
         ? "waiting for someone to join"
         : reconnecting
         ? "connection lost · trying again…"
-        : switch (_signalOf(p!.rssi)) {
-            _Signal.good => "Strong signal",
-            _Signal.weak => "Weak signal",
-            _Signal.poor => "Very weak signal",
+        : switch (bluetoothSignalOf(p!.rssi)) {
+            BluetoothSignal.good => "Strong signal",
+            BluetoothSignal.weak => "Weak signal",
+            BluetoothSignal.poor => "Very weak signal",
           };
     final initial = isEmpty ? "+" : (isHost ? _name! : p!.name)[0];
 
@@ -570,10 +657,10 @@ class _SignalBars extends StatelessWidget {
         : rssi >= -90
         ? 1
         : 0;
-    final color = switch (_signalOf(rssi)) {
-      _Signal.good => palette.success,
-      _Signal.weak => palette.warning,
-      _Signal.poor => palette.error,
+    final color = switch (bluetoothSignalOf(rssi)) {
+      BluetoothSignal.good => palette.success,
+      BluetoothSignal.weak => palette.warning,
+      BluetoothSignal.poor => palette.error,
     };
 
     return SizedBox(
@@ -635,5 +722,48 @@ class _DashedPainter extends BoxPainter {
         canvas.drawPath(metric.extractPath(d, d + 6), paint);
       }
     }
+  }
+}
+
+class _FailedBanner extends StatelessWidget {
+  const _FailedBanner({
+    this.title = "Couldn’t start your room",
+    this.message = "Nearby devices can’t see it yet.",
+  });
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final palette = context.palette;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: palette.errorSoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: palette.error, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: palette.badFg, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                Text(message, style: tt.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

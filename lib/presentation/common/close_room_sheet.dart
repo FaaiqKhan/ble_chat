@@ -1,8 +1,9 @@
+import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 
-Future<void> confirmClose(
+Future<bool> confirmClose(
   BuildContext context,
   List<HostParticipant> participants,
 ) async {
@@ -17,9 +18,7 @@ Future<void> confirmClose(
           : '${participants.length} people',
     ),
   );
-  if (close == true && context.mounted) {
-    Navigator.of(context).popUntil((r) => r.isFirst);
-  }
+  return close == true && context.mounted;
 }
 
 class CloseRoomSheet extends StatelessWidget {
@@ -39,14 +38,31 @@ class CloseRoomSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Close this room?", style: tt.headlineSmall),
-            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: palette.errorSoft,
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Icon(Icons.warning_amber, color: palette.error),
+            ),
+            const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.large,
+            ),
+            Text("End this room for everyone?", style: tt.headlineMedium),
+            const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.medium,
+            ),
             Text(
-              "This disconnects $others and stops advertising. The room can't "
-              "be reopened with the same code.",
+              "Closing the room removes $others straight away.\nThey will see \"The host ended this chat\". This can't be undone.",
               style: tt.bodyMedium,
             ),
-            const SizedBox(height: 20),
+            const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.large,
+            ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -55,7 +71,10 @@ class CloseRoomSheet extends StatelessWidget {
                 child: const Text("Close Room"),
               ),
             ),
-            const SizedBox(height: 10),
+            const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.medium,
+            ),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

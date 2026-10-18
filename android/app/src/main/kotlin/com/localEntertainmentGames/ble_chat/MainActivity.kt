@@ -14,9 +14,20 @@ class MainActivity : FlutterActivity() {
             BluetoothPermissionHandler.CHANNEL
         ).setMethodCallHandler(BluetoothPermissionHandler(applicationContext))
 
+
         EventChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             BluetoothStateHandler.CHANNEL
         ).setStreamHandler(BluetoothStateHandler(applicationContext))
+
+        val advertiserHandler = AdvertiserHandler(applicationContext)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            AdvertiserHandler.EVENT_CHANNEL
+        ).setStreamHandler(advertiserHandler)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            AdvertiserHandler.METHOD_CHANNEL
+        ).setMethodCallHandler(advertiserHandler)
     }
 }

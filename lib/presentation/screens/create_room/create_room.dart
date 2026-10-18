@@ -2,8 +2,10 @@ import 'dart:math';
 
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
+import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/common/constants.dart';
+import 'package:ble_chat/data/repository_impl/host_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/max_people_option.dart';
@@ -44,6 +46,20 @@ class _CreateRoomState extends State<CreateRoom> {
   void dispose() {
     controller.dispose();
     super.dispose();
+  }
+
+  void _startHosting() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => HostSessionBloc(
+            HostSessionState(code: code, roomName: _name, maxPeople: maxPeople),
+            hostSessionRepository: HostSessionRepositoryImpl(),
+          )..add(StartHostingEvent()),
+          child: HostScreen(),
+        ),
+      ),
+    );
   }
 
   String get _name => controller.text.trim();
@@ -222,20 +238,7 @@ class _CreateRoomState extends State<CreateRoom> {
                       setState(() => touched = true);
                       return;
                     }
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => BlocProvider(
-                          create: (_) => HostSessionBloc(
-                            HostSessionState(
-                              code: code,
-                              roomName: _name,
-                              maxPeople: maxPeople,
-                            ),
-                          ),
-                          child: HostScreen(),
-                        ),
-                      ),
-                    );
+                    _startHosting();
                   },
                   style: canStart
                       ? ElevatedButton.styleFrom(
@@ -248,19 +251,6 @@ class _CreateRoomState extends State<CreateRoom> {
                         ),
                   child: const Text("Start Hosting"),
                 ),
-              ),
-              const SpacerBox(
-                type: SpacerBoxType.vertical,
-                size: SpacerBoxSize.small,
-              ),
-              Text(
-                !isBluetoothReady
-                    ? "Turn on Bluetooth to start your room"
-                    : error != null
-                    ? "Fix the room name to continue"
-                    : "People nearby can find your room right away",
-                style: tt.bodySmall,
-                textAlign: TextAlign.center,
               ),
             ],
           ),

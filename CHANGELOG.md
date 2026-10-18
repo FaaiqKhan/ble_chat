@@ -1,5 +1,20 @@
 # Changelog
 
+# [1.4.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.3.0...v1.4.0) (2026-10-18)
+
+
+### Bug Fixes
+
+* removed bottom line ([e900313](https://github.com/FaaiqKhan/ble_chat/commit/e90031369c89da5a2257a8a571798f46de9695d8))
+* ui colors and handling of states ([2ac8349](https://github.com/FaaiqKhan/ble_chat/commit/2ac83495faf71e5b651145f865254127cd5d2e22))
+* unused import removed ([9280088](https://github.com/FaaiqKhan/ble_chat/commit/9280088d231fb62257d5b941dd0381573c6caf94))
+
+
+### Features
+
+* advertising and close handling ([b00a9aa](https://github.com/FaaiqKhan/ble_chat/commit/b00a9aac1f486f350447f50f2ebc12a0adc649aa))
+* room creation progress steps added ([a9fcd9e](https://github.com/FaaiqKhan/ble_chat/commit/a9fcd9edfde7b526c958763cac1b4c429e6eaf2e))
+
 # [1.3.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.2.1...v1.3.0) (2026-10-17)
 
 

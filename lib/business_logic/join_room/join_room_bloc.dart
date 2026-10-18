@@ -27,7 +27,10 @@ class JoinRoomBloc extends Bloc<JoinRoomEvent, JoinRoomState> {
   FutureOr<void> _onStopScanRoomEvent(
     StopScanRoomEvent event,
     Emitter<JoinRoomState> emit,
-  ) {}
+  ) async {
+    emit(state.copyWith(status: JoinRoomStatus.idle));
+    await _joinRoomRepository.stopScanning();
+  }
 
   FutureOr<void> _onJoinRoom(JoinRoom event, Emitter<JoinRoomState> emit) {}
 }

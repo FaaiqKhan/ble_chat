@@ -1,18 +1,13 @@
 package com.localEntertainmentGames.ble_chat
 
-import android.Manifest
 import android.annotation.SuppressLint
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
-import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
@@ -22,6 +17,7 @@ import android.os.ParcelUuid
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,7 +36,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     companion object {
         const val EVENT_CHANNEL = "bleAdvertiser/events"
         const val METHOD_CHANNEL = "bleAdvertiser/methods"
-        const val ADVERTISE_DURATION_MS = 60000
+        const val ADVERTISE_DURATION_MS = 60_000L
     }
 
     private var bluetoothManager = context.getSystemService(BluetoothManager::class.java)
@@ -57,9 +53,9 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
     private var advertising = false
     private var advertiser: BluetoothLeAdvertiser? = null
-    private var pendingStart: MethodChannel.Result? = null
 
     private val mainCoroutineScope = MainScope()
+    private var autoStopJob: Job? = null
 
     private fun emitConnectionError(type: String, message: String) {
         mainCoroutineScope.launch { eventSink?.error(type, message, null) }
@@ -90,7 +86,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 // Completion is reported with the "roomClosed" event.
                 result.success(null)
                 try {
-                    stop()
+                    stop(true)
                 } catch (e: Exception) {
                     emitConnectionError("close_room", e.message ?: "Unable to close the room")
                 }
@@ -115,21 +111,18 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             advertising = true
+            autoStopJob?.cancel()
+            autoStopJob = mainCoroutineScope.launch {
+                delay(ADVERTISE_DURATION_MS.milliseconds)
+                stop(false)
+            }
             emitConnectionSuccess("progress", "advertisingStarted")
-//            mainCoroutineScope.launch {
-//                pendingStart?.success(null)
-//                pendingStart = null
-//            }
         }
 
         override fun onStartFailure(errorCode: Int) {
             advertising = false
             emitConnectionError("advertise_failed", "Advertising failed (code $errorCode)")
-//            stop(true)
-//            mainCoroutineScope.launch {
-//                pendingStart?.error("advertise_failed", errorMessage(errorCode), errorCode)
-//                pendingStart = null
-//            }
+            stop(true)
         }
     }
 
@@ -163,7 +156,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
             .setConnectable(true)
-            .setTimeout(ADVERTISE_DURATION_MS)
+            .setTimeout(0)
             .build()
         val advertiseData = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
@@ -177,11 +170,13 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         advertiser.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
     }
 
-    fun stop() {
+    fun stop(closeServer: Boolean) {
+        autoStopJob?.cancel()
+        autoStopJob = null
         advertiser?.stopAdvertising(advertiseCallback)
         advertiser = null
         advertising = false
-        closeGattServer()
+        if (closeServer) closeGattServer()
     }
 
     private val bluetoothGattServerCallback = object : BluetoothGattServerCallback() {
@@ -270,7 +265,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
     private fun closeGattServer() {
         // Closing the server drops every central without a callback, so report it ourselves.
-        val dropped = connectedDevices.toList()
+//        val dropped = connectedDevices.toList()
         connectedDevices.clear()
 //        dropped.forEach { emitConnection(it, "disconnected", BluetoothGatt.GATT_SUCCESS) }
         emitConnectionSuccess("roomClosed", "success")

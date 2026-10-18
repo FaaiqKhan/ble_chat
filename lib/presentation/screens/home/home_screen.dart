@@ -1,4 +1,8 @@
+import 'package:ble_chat/business_logic/join_room/join_room_bloc.dart';
+import 'package:ble_chat/business_logic/join_room/join_room_state.dart';
+import 'package:ble_chat/data/repository_impl/scan_repository_impl.dart';
 import 'package:ble_chat/presentation/screens/create_room/create_room.dart';
+import 'package:ble_chat/presentation/screens/join_room/join_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -18,7 +22,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => CreateRoom()));
 
-  void onJoin() {}
+  void onJoin() => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => BlocProvider(
+        create: (_) => JoinRoomBloc(
+          JoinRoomState(),
+          joinRoomRepository: JoinRoomRepositoryImpl(),
+        ),
+        child: const JoinRoomScreen(),
+      ),
+    ),
+  );
 
   @override
   void initState() {

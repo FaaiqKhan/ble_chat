@@ -64,7 +64,9 @@ class _HostRoomStatusChipState extends State<HostRoomStatusChip>
         palette.success,
         Tween(begin: 1.0, end: 0.15).animate(_blink),
       ),
-      HostSessionStatus.closed || HostSessionStatus.failed => (
+      HostSessionStatus.closed ||
+      HostSessionStatus.failed ||
+      HostSessionStatus.closeFailed => (
         widget.status == HostSessionStatus.closed ? "CLOSED" : "FAILED",
         palette.errorSoft,
         palette.error,

@@ -32,4 +32,9 @@ class HostSessionRepositoryImpl implements HostSessionRepository {
   @override
   Future<void> start(String roomName) =>
       _methodChannel.invokeMethod<void>("start", roomName);
+
+  /// Returns once native has accepted the request; progress follows on
+  /// [hostSessionEvents].
+  @override
+  Future<void> stop() => _methodChannel.invokeMethod<void>("stop");
 }

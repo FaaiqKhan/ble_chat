@@ -1,8 +1,10 @@
 package com.localEntertainmentGames.ble_chat
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
@@ -17,7 +19,6 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
-import androidx.annotation.RequiresPermission
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -32,6 +33,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Callers must hold BLUETOOTH_ADVERTISE and BLUETOOTH_CONNECT (Android 12+) before calling.
  */
+@SuppressLint("MissingPermission")
 class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCallHandler,
     EventChannel.StreamHandler {
 
@@ -71,7 +73,6 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         mainCoroutineScope.launch { eventSink?.success(event) }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onMethodCall(
         call: MethodCall,
         result: MethodChannel.Result
@@ -84,6 +85,17 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 result.success(null)
                 start(call.arguments as String)
             }
+
+            "stop" -> {
+                // Completion is reported with the "roomClosed" event.
+                result.success(null)
+                try {
+                    stop()
+                } catch (e: Exception) {
+                    emitConnectionError("close_room", e.message ?: "Unable to close the room")
+                }
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -104,12 +116,6 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             advertising = true
             emitConnectionSuccess("progress", "advertisingStarted")
-//            autoStopJob?.cancel()
-//            autoStopJob = mainCoroutineScope.launch {
-//                delay(com.example.ble.AdvertiserHandler.Companion.ADVERTISE_DURATION_MS.milliseconds)
-//                // Never tear the server down under an active game.
-//                stop(connectedDevices.isEmpty())
-//            }
 //            mainCoroutineScope.launch {
 //                pendingStart?.success(null)
 //                pendingStart = null
@@ -127,7 +133,6 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun start(name: String) {
         val adapter = adapter
         if (adapter == null || !adapter.isEnabled) {
@@ -170,6 +175,13 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         this.advertiser = advertiser
         advertiser.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
+    }
+
+    fun stop() {
+        advertiser?.stopAdvertising(advertiseCallback)
+        advertiser = null
+        advertising = false
+        closeGattServer()
     }
 
     private val bluetoothGattServerCallback = object : BluetoothGattServerCallback() {
@@ -220,7 +232,6 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun openGattServer() {
         if (gattServer != null) return
         if (bluetoothManager == null) {
@@ -255,5 +266,17 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         this.characteristic = characteristic
         gattServer = server
+    }
+
+    private fun closeGattServer() {
+        // Closing the server drops every central without a callback, so report it ourselves.
+        val dropped = connectedDevices.toList()
+        connectedDevices.clear()
+//        dropped.forEach { emitConnection(it, "disconnected", BluetoothGatt.GATT_SUCCESS) }
+        emitConnectionSuccess("roomClosed", "success")
+        subscribers.clear()
+        gattServer?.close()
+        gattServer = null
+        characteristic = null
     }
 }

@@ -4,4 +4,6 @@ abstract class HostSessionRepository {
   Stream<AdvertiserEvent> hostSessionEvents();
 
   Future<void> start(String roomName);
+
+  Future<void> stop();
 }

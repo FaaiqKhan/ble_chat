@@ -11,6 +11,9 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
   HostSessionBloc(super.initialState, {required this._hostSessionRepository}) {
     on<StartHostingEvent>(_onStartHostingEvent);
     on<CloseRoomEvent>(_onCloseRoomEvent);
+    on<DismissCloseErrorEvent>(
+      (_, emit) => emit(state.copyWith(status: HostSessionStatus.hosting)),
+    );
     on<PeerJoinedEvent>(_onPeerJoinedEvent);
     on<PeerSignalStrengthEvent>(_onPeerSignalStrengthEvent);
   }
@@ -50,6 +53,14 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
   }
 
   HostSessionState _stateFor(AdvertiserEvent event) => switch (event) {
+    // Native confirms teardown while this listener (opened by
+    // StartHostingEvent) is still alive.
+    HostSessionClosedEvent() => state.copyWith(
+      status: HostSessionStatus.closed,
+    ),
+    HostSessionCloseFailedEvent() => state.copyWith(
+      status: HostSessionStatus.closeFailed,
+    ),
     // Late progress after a failure or close must not revive the steps.
     _ when state.status != HostSessionStatus.starting => state,
     HostSessionProgressEvent(:final step) => state.copyWith(
@@ -67,10 +78,19 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
     progress: HostSessionProgress.failed(step),
   );
 
-  void _onCloseRoomEvent(
+  /// Only asks native to stop. `closed` is emitted when native reports
+  /// `roomClosed` (see [_stateFor]), not when the call returns.
+  Future<void> _onCloseRoomEvent(
     CloseRoomEvent event,
     Emitter<HostSessionState> emit,
-  ) {}
+  ) async {
+    emit(state.copyWith(status: HostSessionStatus.closing));
+    try {
+      await _hostSessionRepository.stop();
+    } catch (_) {
+      emit(state.copyWith(status: HostSessionStatus.closeFailed));
+    }
+  }
 
   void _onPeerJoinedEvent(
     PeerJoinedEvent event,

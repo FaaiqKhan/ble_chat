@@ -20,4 +20,7 @@ abstract class BluetoothManagerRepository {
 
   /// Opens system settings, for when the prompt can no longer be shown.
   Future<void> openSettings();
+
+  /// Reads the current state of bluetooth.
+  Future<bool> isBluetoothReady();
 }

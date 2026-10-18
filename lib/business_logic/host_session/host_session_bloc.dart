@@ -1,14 +1,21 @@
+import 'dart:async';
+
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
+import 'package:ble_chat/domain/entities/advertiser_event.dart';
+import 'package:ble_chat/domain/repository/host_session_repository.dart';
+import 'package:ble_chat/domain/entities/host_session_progress.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
-  HostSessionBloc(super.initialState) {
+  HostSessionBloc(super.initialState, {required this._hostSessionRepository}) {
     on<StartHostingEvent>(_onStartHostingEvent);
     on<CloseRoomEvent>(_onCloseRoomEvent);
     on<PeerJoinedEvent>(_onPeerJoinedEvent);
     on<PeerSignalStrengthEvent>(_onPeerSignalStrengthEvent);
   }
+
+  final HostSessionRepository _hostSessionRepository;
 
   int get count => state.participants.length + 1;
 
@@ -18,10 +25,47 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
 
   bool get hasPeer => state.participants.isNotEmpty;
 
-  void _onStartHostingEvent(
+  Future<void> _onStartHostingEvent(
     StartHostingEvent event,
     Emitter<HostSessionState> emit,
-  ) {}
+  ) async {
+    emit(
+      state.copyWith(
+        status: HostSessionStatus.starting,
+        progress: HostSessionProgress.initial(),
+      ),
+    );
+
+    // Listen before asking native to start, so no early event is missed.
+    final events = emit.forEach<AdvertiserEvent>(
+      _hostSessionRepository.hostSessionEvents(),
+      onData: _stateFor,
+    );
+    try {
+      await _hostSessionRepository.start(state.roomName);
+    } catch (_) {
+      emit(_failedAt(HostSessionProgressStep.bluetooth));
+    }
+    await events;
+  }
+
+  HostSessionState _stateFor(AdvertiserEvent event) => switch (event) {
+    // Late progress after a failure or close must not revive the steps.
+    _ when state.status != HostSessionStatus.starting => state,
+    HostSessionProgressEvent(:final step) => state.copyWith(
+      progress: HostSessionProgress.completed(step),
+      status: step == HostSessionProgressStep.advertising
+          ? HostSessionStatus.hosting
+          : HostSessionStatus.starting,
+    ),
+    HostSessionFailedEvent(:final step) => _failedAt(step),
+    UnknownAdvertiserEvent() => state,
+  };
+
+  HostSessionState _failedAt(HostSessionProgressStep step) => state.copyWith(
+    status: HostSessionStatus.failed,
+    progress: HostSessionProgress.failed(step),
+  );
 
   void _onCloseRoomEvent(
     CloseRoomEvent event,

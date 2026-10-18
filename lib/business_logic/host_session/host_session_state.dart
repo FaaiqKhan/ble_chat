@@ -1,3 +1,4 @@
+import 'package:ble_chat/domain/entities/host_session_progress.dart';
 import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
 import 'package:equatable/equatable.dart';
 
@@ -10,8 +11,7 @@ class HostSessionState extends Equatable {
     required this.maxPeople,
     this.participants = const [],
     this.status = HostSessionStatus.idle,
-    this.startStep = 0,
-    this.failedStep,
+    this.progress = const [],
   });
 
   final String roomName;
@@ -20,26 +20,20 @@ class HostSessionState extends Equatable {
   final List<HostParticipant> participants;
   final HostSessionStatus status;
 
-  /// While starting: index of the step in progress (0 = Bluetooth ready,
-  /// 1 = creating the room service, 2 = advertising).
-  final int startStep;
-
-  /// While failed: index of the step that failed.
-  final int? failedStep;
+  /// The startup steps and where each one is. Empty until hosting starts.
+  final List<HostSessionProgress> progress;
 
   HostSessionState copyWith({
     List<HostParticipant>? participants,
     HostSessionStatus? status,
-    int? startStep,
-    int? failedStep,
+    List<HostSessionProgress>? progress,
   }) => HostSessionState(
     roomName: roomName,
     code: code,
     maxPeople: maxPeople,
     participants: participants ?? this.participants,
     status: status ?? this.status,
-    startStep: startStep ?? this.startStep,
-    failedStep: failedStep ?? this.failedStep,
+    progress: progress ?? this.progress,
   );
 
   void addParticipant(HostParticipant participant) =>
@@ -55,7 +49,6 @@ class HostSessionState extends Equatable {
     maxPeople,
     participants,
     status,
-    startStep,
-    failedStep,
+    progress,
   ];
 }

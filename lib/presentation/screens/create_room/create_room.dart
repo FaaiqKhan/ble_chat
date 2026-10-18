@@ -5,6 +5,7 @@ import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/common/constants.dart';
+import 'package:ble_chat/data/repository_impl/host_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/max_people_option.dart';
@@ -52,12 +53,8 @@ class _CreateRoomState extends State<CreateRoom> {
       MaterialPageRoute(
         builder: (_) => BlocProvider(
           create: (_) => HostSessionBloc(
-            HostSessionState(
-              code: code,
-              roomName: _name,
-              maxPeople: maxPeople,
-              status: HostSessionStatus.starting,
-            ),
+            HostSessionState(code: code, roomName: _name, maxPeople: maxPeople),
+            hostSessionRepository: HostSessionRepositoryImpl(),
           )..add(StartHostingEvent()),
           child: HostScreen(),
         ),

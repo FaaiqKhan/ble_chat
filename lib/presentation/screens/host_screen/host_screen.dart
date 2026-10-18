@@ -7,6 +7,7 @@ import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/host_screen/widgets/host_room_setting_up.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -59,9 +60,10 @@ class HostScreen extends StatelessWidget {
             padding: AppPadding.portraitScreen,
             child: BlocBuilder<HostSessionBloc, HostSessionState>(
               builder: (context, state) {
-                final starting = state.status == HostSessionStatus.starting;
                 final failed = state.status == HostSessionStatus.failed;
-                final inStartup = starting || failed;
+                final inStartup =
+                    state.status == HostSessionStatus.idle ||
+                    state.status == HostSessionStatus.starting;
                 return Column(
                   children: [
                     Row(
@@ -91,6 +93,19 @@ class HostScreen extends StatelessWidget {
                       type: SpacerBoxType.vertical,
                       size: SpacerBoxSize.medium,
                     ),
+                    switch (hostSessionBloc.state.status) {
+                      // TODO: Handle this case.
+                      HostSessionStatus.idle => const SizedBox.shrink(),
+                      HostSessionStatus.starting => const HostRoomSettingUp(),
+                      // TODO: Handle this case.
+                      HostSessionStatus.hosting => const SizedBox.shrink(),
+                      // TODO: Handle this case.
+                      HostSessionStatus.closing => const SizedBox.shrink(),
+                      // TODO: Handle this case.
+                      HostSessionStatus.closed => const SizedBox.shrink(),
+                      // TODO: Handle this case.
+                      HostSessionStatus.failed => const SizedBox.shrink(),
+                    },
                     Expanded(
                       child: ListView(
                         children: [
@@ -110,9 +125,12 @@ class HostScreen extends StatelessWidget {
                             type: SpacerBoxType.vertical,
                             size: SpacerBoxSize.medium,
                           ),
+                          if (hostSessionBloc.state.status ==
+                              HostSessionStatus.idle)
+                            HostRoomSettingUp(),
                           if (failed)
                             const _FailedBanner()
-                          else if (starting)
+                          else if (inStartup)
                             const SizedBox.shrink()
                           else if (hostSessionBloc.isFull)
                             const _FullBanner()
@@ -126,14 +144,7 @@ class HostScreen extends StatelessWidget {
                             type: SpacerBoxType.vertical,
                             size: SpacerBoxSize.large,
                           ),
-                          if (inStartup)
-                            _StartSteps(
-                              current: state.startStep,
-                              failedStep: failed
-                                  ? (state.failedStep ?? 0)
-                                  : null,
-                            )
-                          else ...[
+                          ...[
                             Text(
                               "CONNECTED · ${hostSessionBloc.count}",
                               style: tt.labelSmall?.copyWith(
@@ -701,200 +712,6 @@ class _FailedBanner extends StatelessWidget {
                 ),
                 Text("Nearby devices can’t see it yet.", style: tt.bodySmall),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-enum _StepState { done, current, pending, failed }
-
-/// The startup sequence shown until the room is advertising: Bluetooth ready,
-/// room (GATT) service created, advertising to nearby devices.
-class _StartSteps extends StatelessWidget {
-  const _StartSteps({required this.current, required this.failedStep});
-
-  static const _labels = [
-    'Bluetooth ready',
-    'Creating room service',
-    'Advertising to nearby devices',
-  ];
-
-  final int current;
-  final int? failedStep;
-
-  _StepState _stateOf(int i) {
-    final failed = failedStep;
-    if (failed != null) {
-      return i < failed
-          ? _StepState.done
-          : i == failed
-          ? _StepState.failed
-          : _StepState.pending;
-    }
-    return i < current
-        ? _StepState.done
-        : i == current
-        ? _StepState.current
-        : _StepState.pending;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-    final palette = context.palette;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          failedStep != null ? "WHAT HAPPENED" : "STARTING YOUR ROOM",
-          style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-        ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: cs.outlineVariant),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < _labels.length; i++)
-                  _StepRow(
-                    label: _labels[i],
-                    state: _stateOf(i),
-                    first: i == 0,
-                    palette: palette,
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          failedStep != null
-              ? "Nothing is visible to nearby devices yet."
-              : "Keep this screen open. This usually takes a few seconds.",
-          style: tt.bodySmall,
-        ),
-      ],
-    );
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({
-    required this.label,
-    required this.state,
-    required this.first,
-    required this.palette,
-  });
-
-  final String label;
-  final _StepState state;
-  final bool first;
-  final AppPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    final (ring, fill, fg, tag, tagFg, bg) = switch (state) {
-      _StepState.done => (
-        palette.okFg,
-        palette.successSoft,
-        cs.onSurface,
-        "DONE",
-        palette.okFg,
-        Colors.transparent,
-      ),
-      _StepState.current => (
-        palette.primaryBorder,
-        palette.primarySoft,
-        cs.onSurface,
-        "NOW",
-        palette.primaryFg,
-        palette.primarySoft,
-      ),
-      _StepState.pending => (
-        cs.outline,
-        Colors.transparent,
-        cs.onSurfaceVariant,
-        "",
-        cs.onSurfaceVariant,
-        Colors.transparent,
-      ),
-      _StepState.failed => (
-        palette.badFg,
-        palette.errorSoft,
-        palette.badFg,
-        "FAILED",
-        palette.badFg,
-        palette.errorSoft,
-      ),
-    };
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 52),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: bg,
-        border: first
-            ? null
-            : Border(top: BorderSide(color: cs.outlineVariant)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: fill,
-              border: Border.all(color: ring, width: 2),
-            ),
-            child: switch (state) {
-              _StepState.done => Icon(
-                Icons.check,
-                size: 14,
-                color: palette.okFg,
-              ),
-              _StepState.failed => Icon(
-                Icons.close,
-                size: 12,
-                color: palette.badFg,
-              ),
-              _StepState.current => SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: palette.primaryFg,
-                  backgroundColor: palette.primaryBorder,
-                ),
-              ),
-              _StepState.pending => null,
-            },
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(label, style: tt.titleSmall?.copyWith(color: fg)),
-          ),
-          Text(
-            tag,
-            style: TextStyle(
-              fontFamily: AppFonts.mono,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.6,
-              color: tagFg,
             ),
           ),
         ],

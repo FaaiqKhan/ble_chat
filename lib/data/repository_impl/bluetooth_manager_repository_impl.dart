@@ -7,8 +7,9 @@ class BluetoothManagerRepositoryImpl implements BluetoothManagerRepository {
 
   final bool isAndroid;
 
-  static const _channel = MethodChannel('bluetoothPermission');
-  static const _stateEvents = EventChannel('bluetoothState/events');
+  static const _channel = MethodChannel("bluetoothPermission");
+  static const _stateEvents = EventChannel("bluetoothState/events");
+  static const _stateMethods = MethodChannel("bluetoothState/methods");
 
   @override
   Stream<bool> watchBluetoothIsOn() => _stateEvents
@@ -62,4 +63,10 @@ class BluetoothManagerRepositoryImpl implements BluetoothManagerRepository {
   Future<void> openSettings() async {
     await openAppSettings();
   }
+
+  @override
+  Future<bool> isBluetoothReady() => _stateMethods
+      .invokeMethod("isBluetoothReady")
+      .then((value) => value as bool)
+      .catchError((_) => false);
 }

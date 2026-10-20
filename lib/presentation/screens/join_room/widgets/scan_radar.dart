@@ -78,7 +78,10 @@ class _ScanRadarState extends State<ScanRadar>
             "Looking for a room…",
             style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 4),
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.small,
+          ),
           Text(
             "“${widget.query}” · up to 10 seconds",
             textAlign: TextAlign.center,

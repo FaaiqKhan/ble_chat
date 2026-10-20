@@ -1,5 +1,23 @@
 # Changelog
 
+# [1.5.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.4.0...v1.5.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* scan radar bluetooth icon ([4244e0d](https://github.com/FaaiqKhan/ble_chat/commit/4244e0d1782c2649ecb7d57498da439dd24f5b21))
+* ui for join room ([b36be61](https://github.com/FaaiqKhan/ble_chat/commit/b36be613013c64eb943de87703e2eda92f1f6d5f))
+
+
+### Features
+
+* join a chat room ui ([b8ec39b](https://github.com/FaaiqKhan/ble_chat/commit/b8ec39b04a6f824c040f009eb1c45be99af929be))
+* join room screen and bloc added with basic logic ([216e281](https://github.com/FaaiqKhan/ble_chat/commit/216e281014f1c8dc26afd779b30882de2ca0d62a))
+* loading state UI and idle state UI added ([a14fcd3](https://github.com/FaaiqKhan/ble_chat/commit/a14fcd3d31f7ad51b5a1a78483365d0a72ec812f))
+* scan device and auto stop handler ([200351f](https://github.com/FaaiqKhan/ble_chat/commit/200351f354359771edbaa429a8ae2accf1bdb331))
+* scanning and showing scanned results ([90d9607](https://github.com/FaaiqKhan/ble_chat/commit/90d9607970453f6f3366e27fbfa7fba796885f5f))
+* showing signal strength and using hardware filter for scanner ([3a0caba](https://github.com/FaaiqKhan/ble_chat/commit/3a0cabac49e2284a2dc80284b2db87654135272f))
+
 # [1.4.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.3.0...v1.4.0) (2026-10-18)
 
 

@@ -4,6 +4,7 @@ import 'package:ble_chat/business_logic/scan_session/scan_session_event.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/chat_icon_button.dart';
+import 'package:ble_chat/presentation/screens/scan/widgets/room_not_found_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/found_room_list.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/scan_radar.dart';
@@ -140,6 +141,10 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                       ),
                     ],
                   ),
+                  const SpacerBox(
+                    type: SpacerBoxType.vertical,
+                    size: SpacerBoxSize.large,
+                  ),
                   Expanded(
                     child: Center(
                       child: switch (state.status) {
@@ -159,9 +164,9 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           rooms: state.rooms,
                           scanning: false,
                         ),
-                        ScanSessionStatus.notFound => const _ScanMessage(
-                          title: "No room found",
-                          message: "Check the room name with your host, then search again.",
+                        ScanSessionStatus.notFound => Align(
+                          alignment: Alignment.topCenter,
+                          child: NotFoundRoomCard(query: state.query),
                         ),
                         ScanSessionStatus.failed => _ScanMessage(
                           title: "Couldn't search",

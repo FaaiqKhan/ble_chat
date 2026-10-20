@@ -4,6 +4,7 @@ import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
+import 'package:ble_chat/presentation/common/dashed_border.dart';
 import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
@@ -551,7 +552,7 @@ class _MemberRow extends StatelessWidget {
               ),
       ),
       foregroundDecoration: isEmpty
-          ? _DashedBorder(color: cs.outline, radius: 14)
+          ? DashedBorder(color: cs.outline, radius: 14)
           : null,
       child: Row(
         children: [
@@ -640,47 +641,6 @@ class _MemberRow extends StatelessWidget {
 }
 
 enum _RowKind { host, guest, empty }
-
-/// 1.5px dashed rounded border for the empty-spot rows.
-class _DashedBorder extends Decoration {
-  const _DashedBorder({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _DashedPainter(color, radius);
-}
-
-class _DashedPainter extends BoxPainter {
-  _DashedPainter(this.color, this.radius);
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
-    final size = cfg.size;
-    if (size == null) return;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          (offset & size).deflate(0.75),
-          Radius.circular(radius),
-        ),
-      );
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = color;
-    for (final metric in path.computeMetrics()) {
-      for (var d = 0.0; d < metric.length; d += 10) {
-        canvas.drawPath(metric.extractPath(d, d + 6), paint);
-      }
-    }
-  }
-}
 
 class _FailedBanner extends StatelessWidget {
   const _FailedBanner({

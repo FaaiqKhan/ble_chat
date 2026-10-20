@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/common/icon_container.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -95,14 +96,10 @@ class _ScanRadarState extends State<ScanRadar>
             ),
           )
         else
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-            ),
-            child: Icon(Icons.radar, size: 28, color: cs.onSurfaceVariant),
+          IconContainer(
+            iconColor: cs.onSurfaceVariant,
+            iconData: Icons.podcasts_outlined,
+            backgroundColor: cs.surfaceContainerHigh,
           ),
         const SpacerBox(
           type: SpacerBoxType.vertical,

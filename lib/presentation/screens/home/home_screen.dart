@@ -1,6 +1,7 @@
 import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/data/repository_impl/scan_session_repository_impl.dart';
+import 'package:ble_chat/presentation/common/icon_container.dart';
 import 'package:ble_chat/presentation/screens/create_room/create_room.dart';
 import 'package:ble_chat/presentation/screens/scan/scan_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
@@ -177,20 +178,12 @@ class _RoleCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: filled
-                              ? onFilled.withValues(alpha: 0.18)
-                              : tint,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Icon(
-                          icon,
-                          size: 24,
-                          color: filled ? onFilled : accent,
-                        ),
+                      IconContainer(
+                        iconData: icon,
+                        iconColor: filled ? onFilled : accent,
+                        backgroundColor: filled
+                            ? onFilled.withValues(alpha: 0.18)
+                            : tint,
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(

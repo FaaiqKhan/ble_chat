@@ -1,5 +1,7 @@
 # Changelog
 
+## [1.6.1](https://github.com/FaaiqKhan/ble_chat/compare/v1.6.0...v1.6.1) (2026-10-20)
+
 # [1.6.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.5.0...v1.6.0) (2026-10-20)
 
 

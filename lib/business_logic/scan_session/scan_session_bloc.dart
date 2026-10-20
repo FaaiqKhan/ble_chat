@@ -6,13 +6,12 @@ import 'package:ble_chat/domain/repository/join_room_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
-  ScanSessionBloc(super.initialState, {required this._joinRoomRepository}) {
+  ScanSessionBloc(super.initialState, {required this._scanRoomRepository}) {
     on<ScanRoomEvent>(_onScanRoomEvent);
     on<StopScanRoomEvent>(_onStopScanRoomEvent);
-    on<JoinRoom>(_onJoinRoom);
   }
 
-  final JoinRoomRepository _joinRoomRepository;
+  final ScanRoomRepository _scanRoomRepository;
 
   FutureOr<void> _onScanRoomEvent(
     ScanRoomEvent event,
@@ -24,7 +23,7 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
         status: ScanSessionStatus.scanning,
       ),
     );
-    _joinRoomRepository.startScanning(
+    _scanRoomRepository.startScanning(
       name: event.roomName,
       code: event.roomCode,
     );
@@ -35,8 +34,6 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
     Emitter<ScanSessionState> emit,
   ) async {
     emit(state.copyWith(status: ScanSessionStatus.idle));
-    await _joinRoomRepository.stopScanning();
+    await _scanRoomRepository.stopScanning();
   }
-
-  FutureOr<void> _onJoinRoom(JoinRoom event, Emitter<ScanSessionState> emit) {}
 }

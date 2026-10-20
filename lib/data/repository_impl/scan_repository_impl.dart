@@ -1,7 +1,7 @@
 import 'package:ble_chat/domain/repository/join_room_repository.dart';
 import 'package:flutter/services.dart';
 
-class JoinRoomRepositoryImpl implements JoinRoomRepository {
+class ScanRoomRepositoryImpl implements ScanRoomRepository {
   // static const _eventChannel = EventChannel("bleScanner/events");
   static const _methodChannel = MethodChannel("bleScanner/methods");
 
@@ -11,10 +11,4 @@ class JoinRoomRepositoryImpl implements JoinRoomRepository {
 
   @override
   Future<void> stopScanning() => _methodChannel.invokeMethod("stop");
-
-  @override
-  Future<void> joinRoom() async {}
-
-  @override
-  Future<void> leaveRoom() async {}
 }

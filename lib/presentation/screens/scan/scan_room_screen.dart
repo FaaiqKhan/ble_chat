@@ -49,7 +49,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final joinRoomBloc = context.read<ScanSessionBloc>();
+    final scanSessionBloc = context.read<ScanSessionBloc>();
     final isBluetoothReady =
         context.select((BluetoothPermissionCubit c) => c.state.isBluetoothOn) ??
         false;
@@ -93,7 +93,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) {
                             if (canSearch) {
-                              joinRoomBloc.add(
+                              scanSessionBloc.add(
                                 ScanRoomEvent(
                                   roomName: _query,
                                   roomCode: "123",
@@ -120,7 +120,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                         child: scanning
                             ? OutlinedButton(
                                 onPressed: () =>
-                                    joinRoomBloc.add(StopScanRoomEvent()),
+                                    scanSessionBloc.add(StopScanRoomEvent()),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: palette.ctaFg,
                                 ),
@@ -128,7 +128,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                               )
                             : ElevatedButton(
                                 onPressed: canSearch
-                                    ? () => joinRoomBloc.add(
+                                    ? () => scanSessionBloc.add(
                                         ScanRoomEvent(
                                           roomName: _query,
                                           roomCode: "123",

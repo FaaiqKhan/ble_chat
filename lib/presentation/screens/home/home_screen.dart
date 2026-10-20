@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (_) => BlocProvider(
         create: (_) => ScanSessionBloc(
           ScanSessionState(),
-          joinRoomRepository: JoinRoomRepositoryImpl(),
+          scanRoomRepository: ScanRoomRepositoryImpl(),
         ),
         child: const ScanRoomScreen(),
       ),

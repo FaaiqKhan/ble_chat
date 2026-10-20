@@ -8,9 +8,3 @@ final class ScanRoomEvent extends ScanSessionEvent {
 }
 
 final class StopScanRoomEvent extends ScanSessionEvent {}
-
-final class JoinRoom extends ScanSessionEvent {
-  JoinRoom(this.code);
-
-  final String code;
-}

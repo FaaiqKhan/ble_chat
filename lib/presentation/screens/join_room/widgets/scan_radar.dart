@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -5,9 +6,10 @@ import 'package:flutter/material.dart';
 /// The "Looking for a room…" view: three purple rings ripple out from a
 /// Bluetooth badge while the scan runs.
 class ScanRadar extends StatefulWidget {
-  const ScanRadar({super.key, required this.query});
+  const ScanRadar({super.key, required this.query, required this.isScanning});
 
   final String query;
+  final bool isScanning;
 
   @override
   State<ScanRadar> createState() => _ScanRadarState();
@@ -43,17 +45,18 @@ class _ScanRadarState extends State<ScanRadar>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _ripple,
-                  builder: (_, _) => CustomPaint(
-                    painter: _RingsPainter(
-                      progress: reduceMotion ? 0.6 : _ripple.value,
-                      color: AppColors.primary,
+              if (widget.isScanning)
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _ripple,
+                    builder: (_, _) => CustomPaint(
+                      painter: _RingsPainter(
+                        progress: reduceMotion ? 0.6 : _ripple.value,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                 ),
-              ),
               Container(
                 width: 56,
                 height: 56,
@@ -66,20 +69,25 @@ class _ScanRadarState extends State<ScanRadar>
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        Text(
-          "Looking for a room…",
-          style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          "“${widget.query}” · up to 10 seconds",
-          textAlign: TextAlign.center,
-          style: tt.bodySmall?.copyWith(
-            fontFamily: AppFonts.mono,
-            color: cs.onSurfaceVariant,
+        if (widget.isScanning) ...[
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.small,
           ),
-        ),
+          Text(
+            "Looking for a room…",
+            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "“${widget.query}” · up to 10 seconds",
+            textAlign: TextAlign.center,
+            style: tt.bodySmall?.copyWith(
+              fontFamily: AppFonts.mono,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ],
       ],
     );
   }

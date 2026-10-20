@@ -139,9 +139,13 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                   Expanded(
                     child: Center(
                       child: switch (state.status) {
-                        JoinRoomStatus.idle => const _NotSearching(),
+                        JoinRoomStatus.idle => ScanRadar(
+                          query: state.roomName,
+                          isScanning: false,
+                        ),
                         JoinRoomStatus.scanning => ScanRadar(
                           query: state.roomName,
+                          isScanning: true,
                         ),
                         // Results and joining aren't designed here yet.
                         JoinRoomStatus.scanned ||
@@ -155,45 +159,6 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
             },
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _NotSearching extends StatelessWidget {
-  const _NotSearching();
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(AppRadius.lg),
-            ),
-            child: Icon(Icons.wifi_tethering, color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Not searching",
-            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Type the room name or code from your host, then tap Search.",
-            textAlign: TextAlign.center,
-            style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ],
       ),
     );
   }

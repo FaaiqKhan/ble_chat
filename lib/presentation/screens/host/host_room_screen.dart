@@ -7,8 +7,9 @@ import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
+import 'package:ble_chat/presentation/common/signal_bars.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
-import 'package:ble_chat/presentation/screens/host_screen/widgets/host_room_setting_up.dart';
+import 'package:ble_chat/presentation/screens/host/widgets/host_room_setting_up.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -29,8 +30,8 @@ class HostParticipant {
   final bool reconnecting;
 }
 
-class HostScreen extends StatelessWidget {
-  const HostScreen({
+class HostRoomScreen extends StatelessWidget {
+  const HostRoomScreen({
     super.key,
     this.hostName = 'You',
     this.bluetoothOn = true,
@@ -629,7 +630,7 @@ class _MemberRow extends StatelessWidget {
               ),
             )
           else if (p != null)
-            _SignalBars(rssi: p.rssi),
+            SignalBars(rssi: p.rssi),
         ],
       ),
     );
@@ -639,50 +640,6 @@ class _MemberRow extends StatelessWidget {
 }
 
 enum _RowKind { host, guest, empty }
-
-class _SignalBars extends StatelessWidget {
-  const _SignalBars({required this.rssi});
-
-  final int rssi;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final lit = rssi >= -60
-        ? 4
-        : rssi >= -70
-        ? 3
-        : rssi >= -80
-        ? 2
-        : rssi >= -90
-        ? 1
-        : 0;
-    final color = switch (bluetoothSignalOf(rssi)) {
-      BluetoothSignal.good => palette.success,
-      BluetoothSignal.weak => palette.warning,
-      BluetoothSignal.poor => palette.error,
-    };
-
-    return SizedBox(
-      height: 18,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (var i = 0; i < 4; i++)
-            Container(
-              width: 4,
-              height: 6.0 + i * 4,
-              margin: EdgeInsets.only(left: i == 0 ? 0 : 2),
-              decoration: BoxDecoration(
-                color: i < lit ? color : Theme.of(context).colorScheme.outline,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 /// 1.5px dashed rounded border for the empty-spot rows.
 class _DashedBorder extends Decoration {

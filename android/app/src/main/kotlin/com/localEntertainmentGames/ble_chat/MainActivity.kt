@@ -29,5 +29,15 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AdvertiserHandler.METHOD_CHANNEL
         ).setMethodCallHandler(advertiserHandler)
+
+        val scannerHandler = ScannerHandler(applicationContext)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ScannerHandler.EVENT_CHANNEL
+        ).setStreamHandler(scannerHandler)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ScannerHandler.METHOD_CHANNEL
+        ).setMethodCallHandler(scannerHandler)
     }
 }

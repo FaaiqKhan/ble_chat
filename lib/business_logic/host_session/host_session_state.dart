@@ -1,5 +1,5 @@
 import 'package:ble_chat/domain/entities/host_session_progress.dart';
-import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
+import 'package:ble_chat/presentation/screens/host/host_room_screen.dart';
 import 'package:equatable/equatable.dart';
 
 enum HostSessionStatus {

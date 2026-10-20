@@ -13,7 +13,6 @@ import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
-import android.os.ParcelUuid
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -79,7 +78,26 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 // Progress and failures are reported on the event channel, so the call
                 // itself only acknowledges that the request was received.
                 result.success(null)
-                start(call.arguments as String)
+                val roomDetails = Utils.getRoomDetails(call.arguments())
+                if (roomDetails.isNullOrEmpty()) {
+                    eventSink?.error(
+                        "invalid_format",
+                        "Argument must be a Map that contains roomName and roomCode",
+                        null
+                    )
+                    return
+                }
+                if (roomDetails["name"].isNullOrEmpty() || roomDetails["code"].isNullOrEmpty()) {
+                    eventSink?.error(
+                        "scan_room",
+                        "Room name and code are required",
+                        null
+                    )
+                    return
+                }
+                val roomName = roomDetails["name"] as String
+                val roomCode = roomDetails["code"] as String
+                start(roomName, roomCode)
             }
 
             "stop" -> {
@@ -126,7 +144,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    private fun start(name: String) {
+    private fun start(roomName: String, roomCode: String) {
         val adapter = adapter
         if (adapter == null || !adapter.isEnabled) {
             emitConnectionError("bluetooth", "Bluetooth is not ready")
@@ -148,9 +166,19 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         openGattServer()
 
-        // The device name goes in the scan response so the 31-byte advertising packet
-        // only has to hold the flags and the 128-bit service UUID.
-        adapter.name = name
+        // The room identity travels in the advertising packet itself as manufacturer data,
+        // so a scanner can filter on it in hardware (a scan response can't be filtered
+        // on). The service id is left out of the packet to make room; guests find the
+        // GATT service after connecting. The identity is not put in the Bluetooth device
+        // name: renaming the adapter is asynchronous and would rename the user's phone.
+        val payload = Utils.encodeAdvertisement(roomName, roomCode)
+        if (payload == null) {
+            emitConnectionError(
+                "advertise_failed",
+                "Room name is too long to advertise (16 characters at most)"
+            )
+            return
+        }
 
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
@@ -160,14 +188,12 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             .build()
         val advertiseData = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
-            .addServiceUuid(ParcelUuid(Constants.SERVICE_UUID))
-            .build()
-        val scanResponse = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
+            .setIncludeTxPowerLevel(false)
+            .addManufacturerData(Constants.MANUFACTURER_ID, payload)
             .build()
 
         this.advertiser = advertiser
-        advertiser.startAdvertising(settings, advertiseData, scanResponse, advertiseCallback)
+        advertiser.startAdvertising(settings, advertiseData, advertiseCallback)
     }
 
     fun stop(closeServer: Boolean) {

@@ -1,5 +1,5 @@
 import 'package:ble_chat/presentation/common/spacer_box.dart';
-import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
+import 'package:ble_chat/presentation/screens/host/host_room_screen.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:flutter/material.dart';
 

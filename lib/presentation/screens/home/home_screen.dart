@@ -1,4 +1,8 @@
+import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
+import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
+import 'package:ble_chat/data/repository_impl/scan_session_repository_impl.dart';
 import 'package:ble_chat/presentation/screens/create_room/create_room.dart';
+import 'package:ble_chat/presentation/screens/scan/scan_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -18,7 +22,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => CreateRoom()));
 
-  void onJoin() {}
+  void onJoin() => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => BlocProvider(
+        create: (_) => ScanSessionBloc(
+          ScanSessionState(),
+          scanSessionRepository: ScanSessionRepositoryImpl(),
+        ),
+        child: const ScanRoomScreen(),
+      ),
+    ),
+  );
 
   @override
   void initState() {

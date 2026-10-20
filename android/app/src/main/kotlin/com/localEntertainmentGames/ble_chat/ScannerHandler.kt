@@ -43,11 +43,27 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         when (call.method) {
             "scan" -> {
                 result.success(null)
-                if (call.arguments !is String) {
-                    eventSink?.error("scan_room", "Room main must be a String format", null)
+                val roomDetails = Utils.getRoomDetails(call.arguments())
+                if (roomDetails.isNullOrEmpty()) {
+                    eventSink?.error(
+                        "invalid_format",
+                        "Argument must be a Map that contains roomName and roomCode",
+                        null
+                    )
+                    return
                 }
+                if (roomDetails["name"].isNullOrEmpty() || roomDetails["code"].isNullOrEmpty()) {
+                    eventSink?.error(
+                        "scan_room",
+                        "Room name and code are required",
+                        null
+                    )
+                    return
+                }
+                val roomName = roomDetails["name"] as String
+                val roomCode = roomDetails["code"] as String
                 if (isScanning.compareAndSet(false, true)) {
-                    startScanning(call.arguments as String)
+                    startScanning(Utils.buildRoomIdentity(roomName, roomCode))
                 } else {
                     result.error("already_scanning", "A scan is already running", null)
                 }
@@ -95,7 +111,7 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         }
     }
 
-    private fun startScanning(roomName: String) {
+    private fun startScanning(roomIdentity: String) {
         val scanner = adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner
         if (scanner == null) {
             eventSink?.error("bluetooth", "Bluetooth is not available", null)
@@ -106,7 +122,7 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
             .build()
         val scanFilters = listOf(
             ScanFilter.Builder()
-                .setDeviceName(roomName).build()
+                .setDeviceName(roomIdentity).build()
         )
         scanner.startScan(scanFilters, scanSetting, scanCallback)
         autoStopScanning = mainCoroutineScope.launch {

@@ -1,24 +1,24 @@
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
-import 'package:ble_chat/business_logic/join_room/join_room_bloc.dart';
-import 'package:ble_chat/business_logic/join_room/join_room_event.dart';
-import 'package:ble_chat/business_logic/join_room/join_room_state.dart';
+import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
+import 'package:ble_chat/business_logic/scan_session/scan_session_event.dart';
+import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
-import 'package:ble_chat/presentation/screens/join_room/widgets/scan_radar.dart';
+import 'package:ble_chat/presentation/screens/scan/widgets/scan_radar.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class JoinRoomScreen extends StatefulWidget {
-  const JoinRoomScreen({super.key});
+class ScanRoomScreen extends StatefulWidget {
+  const ScanRoomScreen({super.key});
 
   @override
-  State<JoinRoomScreen> createState() => _JoinRoomScreenState();
+  State<ScanRoomScreen> createState() => _ScanRoomScreenState();
 }
 
-class _JoinRoomScreenState extends State<JoinRoomScreen> {
+class _ScanRoomScreenState extends State<ScanRoomScreen> {
   static const _maxQueryLength = 20;
 
   late final TextEditingController controller;
@@ -49,7 +49,7 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final joinRoomBloc = context.read<JoinRoomBloc>();
+    final joinRoomBloc = context.read<ScanSessionBloc>();
     final isBluetoothReady =
         context.select((BluetoothPermissionCubit c) => c.state.isBluetoothOn) ??
         false;
@@ -65,10 +65,10 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
       body: SafeArea(
         child: Padding(
           padding: AppPadding.portraitScreen,
-          child: BlocBuilder<JoinRoomBloc, JoinRoomState>(
+          child: BlocBuilder<ScanSessionBloc, ScanSessionState>(
             buildWhen: (a, b) => a.status != b.status,
             builder: (context, state) {
-              final scanning = state.status == JoinRoomStatus.scanning;
+              final scanning = state.status == ScanSessionStatus.scanning;
               final canSearch = isBluetoothReady && _query.isNotEmpty;
 
               return Column(
@@ -93,7 +93,12 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) {
                             if (canSearch) {
-                              joinRoomBloc.add(ScanRoomEvent(_query));
+                              joinRoomBloc.add(
+                                ScanRoomEvent(
+                                  roomName: _query,
+                                  roomCode: "123",
+                                ),
+                              );
                             }
                           },
                           decoration: InputDecoration(
@@ -124,7 +129,10 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                             : ElevatedButton(
                                 onPressed: canSearch
                                     ? () => joinRoomBloc.add(
-                                        ScanRoomEvent(_query),
+                                        ScanRoomEvent(
+                                          roomName: _query,
+                                          roomCode: "123",
+                                        ),
                                       )
                                     : null,
                                 style: ElevatedButton.styleFrom(
@@ -139,18 +147,18 @@ class _JoinRoomScreenState extends State<JoinRoomScreen> {
                   Expanded(
                     child: Center(
                       child: switch (state.status) {
-                        JoinRoomStatus.idle => ScanRadar(
+                        ScanSessionStatus.idle => ScanRadar(
                           query: state.roomName,
                           isScanning: false,
                         ),
-                        JoinRoomStatus.scanning => ScanRadar(
+                        ScanSessionStatus.scanning => ScanRadar(
                           query: state.roomName,
                           isScanning: true,
                         ),
                         // Results and joining aren't designed here yet.
-                        JoinRoomStatus.scanned ||
-                        JoinRoomStatus.joining ||
-                        JoinRoomStatus.joined => const SizedBox.shrink(),
+                        ScanSessionStatus.scanned ||
+                        ScanSessionStatus.joining ||
+                        ScanSessionStatus.joined => const SizedBox.shrink(),
                       },
                     ),
                   ),

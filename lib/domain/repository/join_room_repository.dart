@@ -1,5 +1,5 @@
 abstract class JoinRoomRepository {
-  Future<void> startScanning(String name);
+  Future<void> startScanning({required String name, required String code});
 
   Future<void> stopScanning();
 

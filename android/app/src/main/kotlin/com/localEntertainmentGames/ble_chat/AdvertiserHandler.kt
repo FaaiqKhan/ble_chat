@@ -79,7 +79,26 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 // Progress and failures are reported on the event channel, so the call
                 // itself only acknowledges that the request was received.
                 result.success(null)
-                start(call.arguments as String)
+                val roomDetails = Utils.getRoomDetails(call.arguments())
+                if (roomDetails.isNullOrEmpty()) {
+                    eventSink?.error(
+                        "invalid_format",
+                        "Argument must be a Map that contains roomName and roomCode",
+                        null
+                    )
+                    return
+                }
+                if (roomDetails["name"].isNullOrEmpty() || roomDetails["code"].isNullOrEmpty()) {
+                    eventSink?.error(
+                        "scan_room",
+                        "Room name and code are required",
+                        null
+                    )
+                    return
+                }
+                val roomName = roomDetails["name"] as String
+                val roomCode = roomDetails["code"] as String
+                start(Utils.buildRoomIdentity(roomName, roomCode))
             }
 
             "stop" -> {
@@ -126,7 +145,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    private fun start(name: String) {
+    private fun start(roomIdentity: String) {
         val adapter = adapter
         if (adapter == null || !adapter.isEnabled) {
             emitConnectionError("bluetooth", "Bluetooth is not ready")
@@ -150,7 +169,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         // The device name goes in the scan response so the 31-byte advertising packet
         // only has to hold the flags and the 128-bit service UUID.
-        adapter.name = name
+        adapter.name = roomIdentity
 
         val settings = AdvertiseSettings.Builder()
             .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)

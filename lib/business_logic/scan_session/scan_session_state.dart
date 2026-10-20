@@ -1,30 +1,30 @@
 import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:equatable/equatable.dart';
 
-enum JoinRoomStatus { idle, scanning, scanned, joining, joined }
+enum ScanSessionStatus { idle, scanning, scanned, joining, joined }
 
-class JoinRoomState extends Equatable {
-  const JoinRoomState({
+class ScanSessionState extends Equatable {
+  const ScanSessionState({
     this.roomName = "",
     this.joined = 0,
     this.maxPeople = 0,
     this.signal = BluetoothSignal.poor,
-    this.status = JoinRoomStatus.idle,
+    this.status = ScanSessionStatus.idle,
   });
 
   final String roomName;
   final int joined;
   final int maxPeople;
   final BluetoothSignal signal;
-  final JoinRoomStatus status;
+  final ScanSessionStatus status;
 
-  JoinRoomState copyWith({
+  ScanSessionState copyWith({
     String? roomName,
     int? joined,
     BluetoothSignal? signal,
-    JoinRoomStatus? status,
+    ScanSessionStatus? status,
   }) {
-    return JoinRoomState(
+    return ScanSessionState(
       roomName: roomName ?? this.roomName,
       joined: joined ?? this.joined,
       maxPeople: maxPeople,

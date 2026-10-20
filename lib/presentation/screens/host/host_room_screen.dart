@@ -8,7 +8,7 @@ import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
-import 'package:ble_chat/presentation/screens/host_screen/widgets/host_room_setting_up.dart';
+import 'package:ble_chat/presentation/screens/host/widgets/host_room_setting_up.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -29,8 +29,8 @@ class HostParticipant {
   final bool reconnecting;
 }
 
-class HostScreen extends StatelessWidget {
-  const HostScreen({
+class HostRoomScreen extends StatelessWidget {
+  const HostRoomScreen({
     super.key,
     this.hostName = 'You',
     this.bluetoothOn = true,

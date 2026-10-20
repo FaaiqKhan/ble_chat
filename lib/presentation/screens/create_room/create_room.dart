@@ -11,7 +11,7 @@ import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/max_people_option.dart';
 import 'package:ble_chat/presentation/common/room_label_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
-import 'package:ble_chat/presentation/screens/host_screen/host_screen.dart';
+import 'package:ble_chat/presentation/screens/host/host_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -56,7 +56,7 @@ class _CreateRoomState extends State<CreateRoom> {
             HostSessionState(code: code, roomName: _name, maxPeople: maxPeople),
             hostSessionRepository: HostSessionRepositoryImpl(),
           )..add(StartHostingEvent()),
-          child: HostScreen(),
+          child: HostRoomScreen(),
         ),
       ),
     );

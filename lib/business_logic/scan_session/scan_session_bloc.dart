@@ -5,7 +5,7 @@ import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:ble_chat/domain/entities/scanner_event.dart';
-import 'package:ble_chat/domain/repository/session_session_repository.dart';
+import 'package:ble_chat/domain/repository/scan_session_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {

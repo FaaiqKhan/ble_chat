@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:ble_chat/domain/entities/scanner_event.dart';
-import 'package:ble_chat/domain/repository/session_session_repository.dart';
+import 'package:ble_chat/domain/repository/scan_session_repository.dart';
 import 'package:flutter/services.dart';
 
 class ScanSessionRepositoryImpl implements ScanSessionRepository {

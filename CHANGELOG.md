@@ -1,5 +1,12 @@
 # Changelog
 
+# [1.7.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.6.1...v1.7.0) (2026-10-20)
+
+
+### Features
+
+* room not found card added along with the state ([5a0aba2](https://github.com/FaaiqKhan/ble_chat/commit/5a0aba24baf8f536c2c90b28e938ac942e16705e))
+
 ## [1.6.1](https://github.com/FaaiqKhan/ble_chat/compare/v1.6.0...v1.6.1) (2026-10-20)
 
 # [1.6.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.5.0...v1.6.0) (2026-10-20)

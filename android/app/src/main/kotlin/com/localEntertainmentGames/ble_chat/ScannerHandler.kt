@@ -1,11 +1,26 @@
 package com.localEntertainmentGames.ble_chat
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.time.Duration.Companion.milliseconds
 
-class ScannerHandler(private val context: Context) : MethodChannel.MethodCallHandler {
+@SuppressLint("MissingPermission")
+class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
+    EventChannel.StreamHandler {
 
     companion object {
         const val EVENT_CHANNEL = "bleScanner/events"
@@ -13,6 +28,12 @@ class ScannerHandler(private val context: Context) : MethodChannel.MethodCallHan
         private const val SCANNING_DURATION_MS = 10_000L
     }
 
+    private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
+    private val adapter get() = bluetoothManager?.adapter
+    private var eventSink: EventChannel.EventSink? = null
+    private var autoStopScanning: Job? = null
+    private val mainCoroutineScope: CoroutineScope = MainScope()
+    private val isFound: AtomicBoolean = AtomicBoolean(false)
     private val isScanning: AtomicBoolean = AtomicBoolean(false)
 
     override fun onMethodCall(
@@ -20,13 +41,96 @@ class ScannerHandler(private val context: Context) : MethodChannel.MethodCallHan
         result: MethodChannel.Result
     ) {
         when (call.method) {
-            "scan" -> {}
-            "stop" -> {}
+            "scan" -> {
+                result.success(null)
+                if (call.arguments !is String) {
+                    eventSink?.error("scan_room", "Room main must be a String format", null)
+                }
+                if (isScanning.compareAndSet(false, true)) {
+                    startScanning(call.arguments as String)
+                } else {
+                    result.error("already_scanning", "A scan is already running", null)
+                }
+            }
+
+            "stop" -> {
+                result.success(null)
+                stopScanning()
+            }
+
             else -> result.notImplemented()
         }
     }
 
-    private fun startScanning(roomName: String) {
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult?) {
+            if (!isFound.compareAndSet(false, true)) {
+                return
+            }
+            if (result == null) return
+            val event = mapOf(
+                "type" to "scan_result",
+                "address" to result.device.address,
+                "name" to (result.scanRecord?.deviceName ?: result.device.name),
+                "rssi" to result.rssi,
+                "serviceUuids" to (result.scanRecord?.serviceUuids?.map { it.toString() }
+                    ?: emptyList()),
+            )
+            mainCoroutineScope.launch {
+                eventSink?.success(event)
+                stopScanning()
+            }
+        }
 
+        override fun onScanFailed(errorCode: Int) {
+            if (!isFound.compareAndSet(false, true)) return
+            mainCoroutineScope.launch {
+                stopScanning()
+                eventSink?.error(
+                    "scan_failed",
+                    "Scan failed with code $errorCode",
+                    errorCode
+                )
+            }
+        }
+    }
+
+    private fun startScanning(roomName: String) {
+        val scanner = adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner
+        if (scanner == null) {
+            eventSink?.error("bluetooth", "Bluetooth is not available", null)
+            return
+        }
+        val scanSetting = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
+        val scanFilters = listOf(
+            ScanFilter.Builder()
+                .setDeviceName(roomName).build()
+        )
+        scanner.startScan(scanFilters, scanSetting, scanCallback)
+        autoStopScanning = mainCoroutineScope.launch {
+            delay(SCANNING_DURATION_MS.milliseconds)
+            stopScanning()
+        }
+    }
+
+    private fun stopScanning() {
+        isFound.set(false)
+        isScanning.set(false)
+        autoStopScanning?.cancel()
+        autoStopScanning = null
+        adapter?.bluetoothLeScanner?.stopScan(scanCallback)
+    }
+
+    override fun onListen(
+        arguments: Any?,
+        events: EventChannel.EventSink?
+    ) {
+        eventSink = events
+    }
+
+    override fun onCancel(arguments: Any?) {
+        eventSink = null
     }
 }

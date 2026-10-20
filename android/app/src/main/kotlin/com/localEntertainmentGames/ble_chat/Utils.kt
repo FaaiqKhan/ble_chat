@@ -1,8 +1,11 @@
 package com.localEntertainmentGames.ble_chat
 
 object Utils {
+    const val IDENTITY_SEPARATOR = " · "
+
+
     fun buildRoomIdentity(roomName: String, roomCode: String): String {
-        return "$roomName · $roomCode"
+        return "$roomName$IDENTITY_SEPARATOR$roomCode"
     }
 
     fun getRoomDetails(data: Any?): Map<String, String?>? {

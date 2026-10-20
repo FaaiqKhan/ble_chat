@@ -119,7 +119,7 @@ class _ScanRadarState extends State<ScanRadar>
         Text(
           widget.isScanning
               ? "“${widget.query}” · up to 10 seconds"
-              : "Type the room name with code from your host, then tap search.",
+              : "Type the room name from your host, then tap Search.",
           textAlign: TextAlign.center,
           style: tt.bodySmall?.copyWith(
             // Mono for the query only; the idle hint is plain copy.

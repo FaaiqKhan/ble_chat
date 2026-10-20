@@ -5,6 +5,7 @@ import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/chat_icon_button.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/scan/widgets/found_room_list.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/scan_radar.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
@@ -66,7 +67,10 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
         child: Padding(
           padding: AppPadding.portraitScreen,
           child: BlocBuilder<ScanSessionBloc, ScanSessionState>(
-            buildWhen: (a, b) => a.status != b.status,
+            buildWhen: (a, b) =>
+                a.status != b.status ||
+                a.rooms != b.rooms ||
+                a.query != b.query,
             builder: (context, state) {
               final scanning = state.status == ScanSessionStatus.scanning;
               final canSearch = isBluetoothReady && _query.isNotEmpty;
@@ -75,7 +79,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "ROOM NAME OR CODE",
+                    "ROOM NAME",
                     style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
                   ),
                   const SpacerBox(
@@ -93,16 +97,11 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) {
                             if (canSearch) {
-                              scanSessionBloc.add(
-                                ScanRoomEvent(
-                                  roomName: _query,
-                                  roomCode: "123",
-                                ),
-                              );
+                              scanSessionBloc.add(ScanRoomEvent(_query));
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: "Room name or code",
+                            hintText: "Room name",
                             counterText: "",
                             fillColor: cs.surface,
                             enabledBorder: _border(cs.outline),
@@ -129,10 +128,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                             : ElevatedButton(
                                 onPressed: canSearch
                                     ? () => scanSessionBloc.add(
-                                        ScanRoomEvent(
-                                          roomName: _query,
-                                          roomCode: "123",
-                                        ),
+                                        ScanRoomEvent(_query),
                                       )
                                     : null,
                                 style: ElevatedButton.styleFrom(
@@ -148,15 +144,32 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                     child: Center(
                       child: switch (state.status) {
                         ScanSessionStatus.idle => ScanRadar(
-                          query: state.roomName,
+                          query: state.query,
                           isScanning: false,
                         ),
-                        ScanSessionStatus.scanning => ScanRadar(
-                          query: state.roomName,
-                          isScanning: true,
+                        // Nothing found yet: the radar. Once rooms appear they
+                        // are listed while the search carries on.
+                        ScanSessionStatus.scanning when state.rooms.isEmpty =>
+                          ScanRadar(query: state.query, isScanning: true),
+                        ScanSessionStatus.scanning => FoundRoomList(
+                          rooms: state.rooms,
+                          scanning: true,
                         ),
-                        // Results and joining aren't designed here yet.
-                        ScanSessionStatus.scanned ||
+                        ScanSessionStatus.scanned => FoundRoomList(
+                          rooms: state.rooms,
+                          scanning: false,
+                        ),
+                        ScanSessionStatus.notFound => const _ScanMessage(
+                          title: "No room found",
+                          message: "Check the room name with your host, then search again.",
+                        ),
+                        ScanSessionStatus.failed => _ScanMessage(
+                          title: "Couldn't search",
+                          message:
+                              state.errorMessage ??
+                              "Something went wrong. Try again.",
+                        ),
+                        // Joining isn't designed here yet.
                         ScanSessionStatus.joining ||
                         ScanSessionStatus.joined => const SizedBox.shrink(),
                       },
@@ -167,6 +180,38 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ScanMessage extends StatelessWidget {
+  const _ScanMessage({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

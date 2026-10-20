@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.1](https://github.com/FaaiqKhan/ble_chat/compare/v1.6.0...v1.6.1) (2026-10-20)
+
+# [1.6.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.5.0...v1.6.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* file name ([dd11322](https://github.com/FaaiqKhan/ble_chat/commit/dd11322929f3854eb547386773ce0aaad17d5c30))
+
 # [1.5.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.4.0...v1.5.0) (2026-10-20)
 
 

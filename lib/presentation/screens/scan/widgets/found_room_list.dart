@@ -8,9 +8,18 @@ import 'package:flutter/material.dart';
 /// Rooms found by the scan. Rooms can share a name, so each shows its code
 /// for the user to compare with the one their host gave them.
 class FoundRoomList extends StatelessWidget {
-  const FoundRoomList({super.key, required this.rooms, required this.scanning});
+  const FoundRoomList({
+    super.key,
+    required this.rooms,
+    required this.scanning,
+    this.onSelect,
+  });
 
   final List<FoundRoom> rooms;
+
+  /// Called when a joinable room is tapped. Rooms that are gone or too weak
+  /// ([FoundRoom.isJoinable]) ignore taps.
+  final ValueChanged<FoundRoom>? onSelect;
 
   /// The scan is still running, so more rooms may appear.
   final bool scanning;
@@ -58,8 +67,11 @@ class FoundRoomList extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             // Rooms are told apart by host address, so a row keeps its state
             // while the list grows.
-            itemBuilder: (_, i) =>
-                _FoundRoomCard(key: ValueKey(rooms[i].address), room: rooms[i]),
+            itemBuilder: (_, i) => _FoundRoomCard(
+              key: ValueKey(rooms[i].address),
+              room: rooms[i],
+              onTap: onSelect == null ? null : () => onSelect!(rooms[i]),
+            ),
           ),
         ),
       ],
@@ -68,79 +80,104 @@ class FoundRoomList extends StatelessWidget {
 }
 
 class _FoundRoomCard extends StatelessWidget {
-  const _FoundRoomCard({super.key, required this.room});
+  const _FoundRoomCard({super.key, required this.room, this.onTap});
 
   final FoundRoom room;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final (signalLabel, signalColor) = switch (bluetoothSignalOf(room.rssi)) {
-      BluetoothSignal.good => ("Strong signal", palette.okFg),
-      BluetoothSignal.weak => ("Weak signal", palette.warnFg),
-      BluetoothSignal.poor => ("Very weak signal", palette.badFg),
-    };
+    final (signalLabel, signalColor) = !room.isAvailable
+        ? ("Not available", cs.onSurfaceVariant)
+        : switch (bluetoothSignalOf(room.rssi)) {
+            BluetoothSignal.good => ("Strong signal", palette.okFg),
+            BluetoothSignal.weak => ("Weak signal", palette.warnFg),
+            BluetoothSignal.poor => ("Very weak signal", palette.badFg),
+          };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+    final radius = BorderRadius.circular(AppRadius.lg);
+
+    // Gone or too weak to connect: dimmed, and taps do nothing.
+    return Opacity(
+      opacity: room.isJoinable ? 1 : 0.5,
+      child: Material(
         color: cs.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: cs.outline, width: 1.5),
-        boxShadow: [palette.shadowCard],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: palette.primarySoft,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: palette.primaryBorder),
-            ),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              children: [
-                Text(room.name, style: tt.headlineSmall),
-                Text(
-                  "·",
-                  style: tt.titleLarge?.copyWith(
-                    fontFamily: AppFonts.mono,
-                    color: palette.primaryFg,
-                  ),
-                ),
-                Text(
-                  room.code,
-                  style: tt.titleLarge?.copyWith(
-                    fontFamily: AppFonts.mono,
-                    letterSpacing: 1.3,
-                    color: palette.primaryFg,
-                  ),
-                ),
-              ],
-            ),
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: cs.outline, width: 1.5),
+        ),
+        elevation: 0,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: room.isJoinable ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: _cardBody(context, signalLabel, signalColor),
           ),
-          const SizedBox(height: 12),
-          Row(
+        ),
+      ),
+    );
+  }
+
+  Widget _cardBody(
+    BuildContext context,
+    String signalLabel,
+    Color signalColor,
+  ) {
+    final tt = Theme.of(context).textTheme;
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: palette.primarySoft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: palette.primaryBorder),
+          ),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
             children: [
-              SignalBars(rssi: room.rssi, barWidth: 5),
-              const SizedBox(width: 8),
+              Text(room.name, style: tt.headlineSmall),
               Text(
-                signalLabel,
-                style: tt.bodySmall?.copyWith(
+                "·",
+                style: tt.titleLarge?.copyWith(
                   fontFamily: AppFonts.mono,
-                  color: signalColor,
+                  color: palette.primaryFg,
+                ),
+              ),
+              Text(
+                room.code,
+                style: tt.titleLarge?.copyWith(
+                  fontFamily: AppFonts.mono,
+                  letterSpacing: 1.3,
+                  color: palette.primaryFg,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            SignalBars(rssi: room.rssi, barWidth: 5),
+            const SizedBox(width: 8),
+            Text(
+              signalLabel,
+              style: tt.bodySmall?.copyWith(
+                fontFamily: AppFonts.mono,
+                color: signalColor,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

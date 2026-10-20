@@ -7,7 +7,7 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
-import android.os.ParcelUuid
+import android.os.SystemClock
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -25,9 +25,11 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * Messages sent on the event channel (Dart parses them in `ScannerEvent`):
  *  - `scan_started`: the radio is scanning
- *  - `scan_result`: a room with a matching name was seen; sent once per host, as hosts
- *    are found, because several rooms can share a name
- *  - `scan_timeout`: the scan time is over (Dart knows from its own list if anything matched)
+ *  - `scan_result`: a room with a matching name was seen. Several rooms can share a name,
+ *    so one is sent per host, and again for the same host at most every
+ *    [REPORT_INTERVAL_MS] so Dart can keep its signal strength up to date
+ *  - `scan_timeout`: the scan is over. Without a match that is after [SCANNING_DURATION_MS];
+ *    once rooms are listed the scan keeps going (live signal) up to [MAX_SCANNING_DURATION_MS]
  *  - errors (`EventSink.error`): `bluetooth`, `scan_failed`
  */
 @SuppressLint("MissingPermission")
@@ -38,6 +40,10 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         const val EVENT_CHANNEL = "bleScanner/events"
         const val METHOD_CHANNEL = "bleScanner/methods"
         private const val SCANNING_DURATION_MS = 10_000L
+        private const val MAX_SCANNING_DURATION_MS = 60_000L
+
+        // Minimum gap between two reports of the same host.
+        private const val REPORT_INTERVAL_MS = 1_000L
     }
 
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
@@ -49,8 +55,10 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
     // Scan callbacks arrive on a Binder thread, so these are read across threads.
     private val isScanning = AtomicBoolean(false)
 
-    // Hosts already reported in this scan; the same host advertises many times a second.
-    private val reportedAddresses: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    // Host address -> the earliest time (elapsedRealtime) it may be reported again. A host
+    // advertises many times a second, so most results are dropped. Written from the
+    // Binder thread and read from the main thread, hence the concurrent map.
+    private val nextReportAt = ConcurrentHashMap<String, Long>()
 
     @Volatile
     private var query: String = ""
@@ -64,7 +72,7 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
                 val search = (call.arguments as? String)?.trim()
                 if (search.isNullOrEmpty()) {
                     // A bad request is answered on the call itself.
-                    result.error("invalid_argument", "A room name or code is required", null)
+                    result.error("invalid_argument", "A room name is required", null)
                     return
                 }
                 // Reply once, here. Progress and failures travel on the event channel.
@@ -84,16 +92,31 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             val record = result?.scanRecord ?: return
-            val identity = record.deviceName ?: return
-            // The host advertises "RoomName · CODE". Only the name is searched, so a
-            // code can't make a different room match.
+            // The host advertises its room as manufacturer data (see Utils.encodeAdvertisement).
+            val identity = Utils.decodeAdvertisement(
+                record.getManufacturerSpecificData(Constants.MANUFACTURER_ID)
+            ) ?: return
+            // Only the name is searched, so a code can't make a different room match.
             val roomName = identity.substringBeforeLast(Utils.IDENTITY_SEPARATOR)
             if (!roomName.contains(query, ignoreCase = true)) return
-            if (!reportedAddresses.add(result.device.address)) return
+            val address = result.device.address
+
+            // Decide atomically: a new host, or one whose interval has passed, is reported.
+            val now = SystemClock.elapsedRealtime()
+            var report = false
+            nextReportAt.compute(address) { _, next ->
+                if (next == null || now >= next) {
+                    report = true
+                    now + REPORT_INTERVAL_MS
+                } else {
+                    next
+                }
+            }
+            if (!report) return
 
             val event = mapOf(
                 "type" to "scan_result",
-                "address" to result.device.address,
+                "address" to address,
                 "name" to identity,
                 "rssi" to result.rssi,
             )
@@ -120,17 +143,20 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         }
 
         query = search
-        reportedAddresses.clear()
+        nextReportAt.clear()
 
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
-        // Filter on the service id, which sits in the advertising packet itself.
-        // The room name lives in the scan response, which hardware name filters
-        // don't reliably look at, so the name is compared in onScanResult.
+        // Filtered in hardware: only advertisements with our company id and marker byte
+        // reach the app. The room name is then compared in onScanResult.
         val scanFilters = listOf(
             ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid(Constants.SERVICE_UUID))
+                .setManufacturerData(
+                    Constants.MANUFACTURER_ID,
+                    byteArrayOf(Constants.ADVERTISEMENT_MARKER),
+                    byteArrayOf(0xFF.toByte())
+                )
                 .build()
         )
         scanner.startScan(scanFilters, scanSettings, scanCallback)
@@ -138,6 +164,12 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
 
         autoStopScanning = mainCoroutineScope.launch {
             delay(SCANNING_DURATION_MS.milliseconds)
+            // With rooms listed the scan carries on so their signal stays live,
+            // up to a cap so it can't run (and drain the battery) forever.
+            if (nextReportAt.isNotEmpty()) {
+                delay((MAX_SCANNING_DURATION_MS - SCANNING_DURATION_MS).milliseconds)
+            }
+            // Dart decides from its own list whether anything was found.
             eventSink?.success(mapOf("type" to "scan_timeout"))
             stopScanning()
         }
@@ -158,7 +190,7 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
     }
 
     override fun onCancel(arguments: Any?) {
-        // Dart stopped listening (cancelled or left the screen): don't scan for nobody.
+        // Dart stopped listening (canceled or left the screen): don't scan for nobody.
         eventSink = null
         stopScanning()
     }

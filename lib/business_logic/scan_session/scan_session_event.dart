@@ -18,3 +18,7 @@ final class ScanEventReceived extends ScanSessionEvent {
 
   final ScannerEvent event;
 }
+
+/// Ticks while scanning so rooms that went quiet get marked unavailable.
+/// Added by the bloc's own timer, not by the UI.
+final class StaleRoomsCheck extends ScanSessionEvent {}

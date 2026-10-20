@@ -13,15 +13,7 @@ class SignalBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final lit = rssi >= -60
-        ? 4
-        : rssi >= -70
-        ? 3
-        : rssi >= -80
-        ? 2
-        : rssi >= -90
-        ? 1
-        : 0;
+    final lit = signalBarCount(rssi);
     final color = switch (bluetoothSignalOf(rssi)) {
       BluetoothSignal.good => palette.success,
       BluetoothSignal.weak => palette.warning,

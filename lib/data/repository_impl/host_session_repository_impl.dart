@@ -30,11 +30,22 @@ class HostSessionRepositoryImpl implements HostSessionRepository {
   /// Returns once native has accepted the request; progress follows on
   /// [hostSessionEvents].
   @override
-  Future<void> start({required String name, required String code}) =>
-      _methodChannel.invokeMethod<void>("start", {
-        "roomName": name,
-        "roomCode": code,
-      });
+  Future<void> start({
+    required String name,
+    required String code,
+    required int maxPeople,
+  }) => _methodChannel.invokeMethod<void>("start", {
+    "roomName": name,
+    "roomCode": code,
+    "maxPeople": maxPeople,
+    // The host is the first person in the room.
+    "people": 1,
+  });
+
+  /// Native restarts advertising with the new count.
+  @override
+  Future<void> updatePeople(int people) =>
+      _methodChannel.invokeMethod<void>("updatePeople", people);
 
   /// Returns once native has accepted the request; progress follows on
   /// [hostSessionEvents].

@@ -162,18 +162,27 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
           code: event.roomCode,
           address: event.address,
           rssi: rssi,
+          people: event.people,
+          maxPeople: event.maxPeople,
         ),
       ];
     }
 
-    // Heard again, so it is back even if its bars stay the same.
+    // Heard again, so it is back even if its bars stay the same. A new people
+    // count always shows: it can make the room full.
     final shown = state.rooms[i];
-    if (shown.isAvailable && !signalLooksDifferent(shown.rssi, rssi)) {
+    if (shown.isAvailable &&
+        shown.people == event.people &&
+        !signalLooksDifferent(shown.rssi, rssi)) {
       return state.rooms;
     }
 
     final rooms = [...state.rooms];
-    rooms[i] = shown.copyWith(rssi: rssi, isAvailable: true);
+    rooms[i] = shown.copyWith(
+      rssi: rssi,
+      people: event.people,
+      isAvailable: true,
+    );
     return rooms;
   }
 

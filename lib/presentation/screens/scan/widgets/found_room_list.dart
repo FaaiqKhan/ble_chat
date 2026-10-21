@@ -1,4 +1,5 @@
 import 'package:ble_chat/domain/entities/found_room.dart';
+import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_found_card.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ class FoundRoomList extends StatelessWidget {
     super.key,
     required this.rooms,
     required this.scanning,
+    required this.query,
     this.onSelect,
   });
 
@@ -21,6 +23,8 @@ class FoundRoomList extends StatelessWidget {
 
   /// The scan is still running, so more rooms may appear.
   final bool scanning;
+
+  final String query;
 
   @override
   Widget build(BuildContext context) {
@@ -52,17 +56,27 @@ class FoundRoomList extends StatelessWidget {
           ],
         ),
         if (rooms.length > 1) ...[
-          const SizedBox(height: 4),
+          Text("${rooms.length} rooms match “$query”", style: tt.displayMedium),
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.small,
+          ),
           Text(
             "Same name? Pick the one with the code your host gave you.",
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
-        const SizedBox(height: 12),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
         Expanded(
           child: ListView.separated(
             itemCount: rooms.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.medium,
+            ),
             // Rooms are told apart by host address, so a row keeps its state
             // while the list grows.
             itemBuilder: (_, i) => FoundRoomCard(

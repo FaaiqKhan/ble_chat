@@ -159,10 +159,12 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                         ScanSessionStatus.scanning => FoundRoomList(
                           rooms: state.rooms,
                           scanning: true,
+                          query: _query,
                         ),
                         ScanSessionStatus.scanned => FoundRoomList(
                           rooms: state.rooms,
                           scanning: false,
+                          query: _query,
                         ),
                         ScanSessionStatus.notFound => Align(
                           alignment: Alignment.topCenter,

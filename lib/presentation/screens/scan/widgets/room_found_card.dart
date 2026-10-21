@@ -1,6 +1,7 @@
 import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:ble_chat/presentation/common/signal_bars.dart';
+import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,8 @@ class FoundRoomCard extends StatelessWidget {
 
     final (signalLabel, signalColor) = !room.isAvailable
         ? ("Not available", cs.onSurfaceVariant)
+        : room.isFull
+        ? ("Room full", palette.badFg)
         : switch (bluetoothSignalOf(room.rssi)) {
             BluetoothSignal.good => ("Strong signal", palette.okFg),
             BluetoothSignal.weak => ("Weak signal", palette.warnFg),
@@ -26,7 +29,7 @@ class FoundRoomCard extends StatelessWidget {
 
     final radius = BorderRadius.circular(AppRadius.lg);
 
-    // Gone or too weak to connect: dimmed, and taps do nothing.
+    // Gone, full or too weak to connect: dimmed, and taps do nothing.
     return Opacity(
       opacity: room.isJoinable ? 1 : 0.5,
       child: Material(
@@ -89,21 +92,67 @@ class FoundRoomCard extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
         Row(
           children: [
             SignalBars(rssi: room.rssi, barWidth: 5),
-            const SizedBox(width: 8),
-            Text(
-              signalLabel,
-              style: tt.bodySmall?.copyWith(
-                fontFamily: AppFonts.mono,
-                color: signalColor,
+            const SpacerBox(
+              type: SpacerBoxType.horizontal,
+              size: SpacerBoxSize.medium,
+            ),
+            Expanded(
+              child: Text(
+                signalLabel,
+                style: tt.bodySmall?.copyWith(
+                  fontFamily: AppFonts.mono,
+                  color: signalColor,
+                ),
               ),
             ),
+            if (room.isFull)
+              _FullTag(palette: palette)
+            else
+              Text(
+                "${room.people} / ${room.maxPeople}",
+                style: tt.bodyMedium?.copyWith(
+                  fontFamily: AppFonts.mono,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// "FULL" label shown instead of the people count once no spot is free.
+class _FullTag extends StatelessWidget {
+  const _FullTag({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: palette.errorSoft,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        "FULL",
+        style: TextStyle(
+          fontFamily: AppFonts.mono,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+          color: palette.badFg,
+        ),
+      ),
     );
   }
 }

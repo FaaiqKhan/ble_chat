@@ -29,24 +29,38 @@ class BluetoothManagerRepositoryImpl implements BluetoothManagerRepository {
     return BluetoothPermissionStatus.permissionDenied;
   }
 
-  // Android 12+ splits Bluetooth into scan / connect / advertise;
-  // iOS has a single Bluetooth permission.
-  List<Permission> get _permissions => isAndroid
-      ? [
-          Permission.bluetoothScan,
-          Permission.bluetoothConnect,
-          Permission.bluetoothAdvertise,
-        ]
-      : [Permission.bluetooth];
+  // Android 12 is API level 31.
+  static const _androidSplitPermissionsSdk = 31;
+  static int? _androidSdk;
+
+  Future<int> _sdkInt() async => _androidSdk ??=
+      await _channel.invokeMethod<int>('sdkInt') ?? _androidSplitPermissionsSdk;
+
+  /// What the user must allow before scanning and advertising work:
+  /// - Android 12+ splits Bluetooth into scan / connect / advertise.
+  /// - Android 11 and older only return scan results to apps allowed to use
+  ///   location (without it a scan finds nothing and reports no error).
+  /// - iOS has a single Bluetooth permission.
+  Future<List<Permission>> _permissions() async {
+    if (!isAndroid) return [Permission.bluetooth];
+    if (await _sdkInt() < _androidSplitPermissionsSdk) {
+      return [Permission.locationWhenInUse];
+    }
+    return [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.bluetoothAdvertise,
+    ];
+  }
 
   @override
   Future<BluetoothPermissionStatus> checkBluetoothPermission() async {
-    return _resolve([for (final p in _permissions) await p.status]);
+    return _resolve([for (final p in await _permissions()) await p.status]);
   }
 
   @override
   Future<BluetoothPermissionStatus> requestBluetoothPermission() async {
-    return _resolve((await _permissions.request()).values);
+    return _resolve((await (await _permissions()).request()).values);
   }
 
   @override

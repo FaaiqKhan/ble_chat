@@ -10,7 +10,7 @@ class FoundRoomList extends StatelessWidget {
   const FoundRoomList({
     super.key,
     required this.rooms,
-    required this.scanning,
+    required this.isScanning,
     required this.query,
     this.onVerify,
     this.verifyingAddress,
@@ -35,7 +35,7 @@ class FoundRoomList extends StatelessWidget {
   final VoidCallback? onCodeChanged;
 
   /// The scan is still running, so more rooms may appear.
-  final bool scanning;
+  final bool isScanning;
 
   final String query;
 
@@ -47,7 +47,7 @@ class FoundRoomList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (scanning)
+        if (isScanning)
           Row(
             children: [
               Text(
@@ -68,7 +68,7 @@ class FoundRoomList extends StatelessWidget {
               ),
             ],
           ),
-        if (scanning)
+        if (isScanning)
           const SpacerBox(
             type: SpacerBoxType.vertical,
             size: SpacerBoxSize.medium,

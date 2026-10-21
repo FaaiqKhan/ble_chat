@@ -12,14 +12,27 @@ class FoundRoomList extends StatelessWidget {
     required this.rooms,
     required this.scanning,
     required this.query,
-    this.onSelect,
+    this.onVerify,
+    this.verifyingAddress,
+    this.wrongCodeAddress,
+    this.onCodeChanged,
   });
 
   final List<FoundRoom> rooms;
 
-  /// Called when a joinable room is tapped. Rooms that are gone or too weak
-  /// ([FoundRoom.isJoinable]) ignore taps.
-  final ValueChanged<FoundRoom>? onSelect;
+  /// Called with the room and the 6 digits typed for it when Verify & Join is
+  /// pressed. Rooms that are gone, full or too weak ([FoundRoom.isJoinable])
+  /// can't be opened.
+  final void Function(FoundRoom room, String code)? onVerify;
+
+  /// Address of the room whose code is being checked, if any.
+  final String? verifyingAddress;
+
+  /// Address of the room whose last code was wrong, if any.
+  final String? wrongCodeAddress;
+
+  /// Called as the user types a code, so a shown error can be cleared.
+  final VoidCallback? onCodeChanged;
 
   /// The scan is still running, so more rooms may appear.
   final bool scanning;
@@ -87,7 +100,9 @@ class FoundRoomList extends StatelessWidget {
             itemBuilder: (_, i) => FoundRoomCard(
               key: ValueKey(rooms[i].address),
               room: rooms[i],
-              onTap: onSelect == null ? null : () => onSelect!(rooms[i]),
+              onVerify: onVerify == null
+                  ? null
+                  : (code) => onVerify!(rooms[i], code),
             ),
           ),
         ),

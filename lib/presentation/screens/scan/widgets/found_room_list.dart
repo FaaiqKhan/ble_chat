@@ -1,4 +1,5 @@
 import 'package:ble_chat/domain/entities/found_room.dart';
+import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_found_card.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:flutter/material.dart';
@@ -9,18 +10,34 @@ class FoundRoomList extends StatelessWidget {
   const FoundRoomList({
     super.key,
     required this.rooms,
-    required this.scanning,
-    this.onSelect,
+    required this.isScanning,
+    required this.query,
+    this.onVerify,
+    this.verifyingAddress,
+    this.wrongCodeAddress,
+    this.onCodeChanged,
   });
 
   final List<FoundRoom> rooms;
 
-  /// Called when a joinable room is tapped. Rooms that are gone or too weak
-  /// ([FoundRoom.isJoinable]) ignore taps.
-  final ValueChanged<FoundRoom>? onSelect;
+  /// Called with the room and the 6 digits typed for it when Verify & Join is
+  /// pressed. Rooms that are gone, full or too weak ([FoundRoom.isJoinable])
+  /// can't be opened.
+  final void Function(FoundRoom room, String code)? onVerify;
+
+  /// Address of the room whose code is being checked, if any.
+  final String? verifyingAddress;
+
+  /// Address of the room whose last code was wrong, if any.
+  final String? wrongCodeAddress;
+
+  /// Called as the user types a code, so a shown error can be cleared.
+  final VoidCallback? onCodeChanged;
 
   /// The scan is still running, so more rooms may appear.
-  final bool scanning;
+  final bool isScanning;
+
+  final String query;
 
   @override
   Widget build(BuildContext context) {
@@ -30,16 +47,17 @@ class FoundRoomList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              scanning
-                  ? "SEARCHING · ${rooms.length} FOUND"
-                  : "${rooms.length} ${rooms.length == 1 ? "ROOM" : "ROOMS"} FOUND",
-              style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-            ),
-            if (scanning) ...[
-              const SizedBox(width: 8),
+        if (isScanning)
+          Row(
+            children: [
+              Text(
+                "SEARCHING · ${rooms.length} FOUND",
+                style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
+              ),
+              const SpacerBox(
+                type: SpacerBoxType.horizontal,
+                size: SpacerBoxSize.medium,
+              ),
               SizedBox(
                 width: 10,
                 height: 10,
@@ -49,26 +67,42 @@ class FoundRoomList extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-        if (rooms.length > 1) ...[
-          const SizedBox(height: 4),
+          ),
+        if (isScanning)
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.medium,
+          ),
+        if (rooms.length == 1) ...[
+          Text("${rooms.length} rooms match “$query”", style: tt.titleLarge),
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.small,
+          ),
           Text(
             "Same name? Pick the one with the code your host gave you.",
             style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
           ),
         ],
-        const SizedBox(height: 12),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
         Expanded(
           child: ListView.separated(
             itemCount: rooms.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.medium,
+            ),
             // Rooms are told apart by host address, so a row keeps its state
             // while the list grows.
             itemBuilder: (_, i) => FoundRoomCard(
               key: ValueKey(rooms[i].address),
               room: rooms[i],
-              onTap: onSelect == null ? null : () => onSelect!(rooms[i]),
+              onVerify: onVerify == null
+                  ? null
+                  : (code) => onVerify!(rooms[i], code),
             ),
           ),
         ),

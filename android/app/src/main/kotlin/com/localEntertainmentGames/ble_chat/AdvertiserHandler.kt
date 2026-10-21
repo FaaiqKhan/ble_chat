@@ -53,6 +53,9 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private var advertising = false
     private var advertiser: BluetoothLeAdvertiser? = null
 
+    // The room being advertised, kept so the people count can be refreshed later.
+    private var room: Utils.RoomAd? = null
+
     private val mainCoroutineScope = MainScope()
     private var autoStopJob: Job? = null
 
@@ -78,26 +81,21 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 // Progress and failures are reported on the event channel, so the call
                 // itself only acknowledges that the request was received.
                 result.success(null)
-                val roomDetails = Utils.getRoomDetails(call.arguments())
-                if (roomDetails.isNullOrEmpty()) {
+                val details = Utils.getRoomDetails(call.arguments())
+                if (details == null) {
                     eventSink?.error(
                         "invalid_format",
-                        "Argument must be a Map that contains roomName and roomCode",
+                        "Argument must be a Map with roomName and roomCode",
                         null
                     )
                     return
                 }
-                if (roomDetails["name"].isNullOrEmpty() || roomDetails["code"].isNullOrEmpty()) {
-                    eventSink?.error(
-                        "scan_room",
-                        "Room name and code are required",
-                        null
-                    )
-                    return
-                }
-                val roomName = roomDetails["name"] as String
-                val roomCode = roomDetails["code"] as String
-                start(roomName, roomCode)
+                start(details)
+            }
+
+            "updatePeople" -> {
+                result.success(null)
+                updatePeople(call.arguments as? Int ?: return)
             }
 
             "stop" -> {
@@ -129,10 +127,13 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             advertising = true
-            autoStopJob?.cancel()
-            autoStopJob = mainCoroutineScope.launch {
-                delay(ADVERTISE_DURATION_MS.milliseconds)
-                stop(false)
+            // A refresh (new people count) restarts advertising but must not extend the
+            // time the room stays visible, so the timer only starts once.
+            if (autoStopJob == null) {
+                autoStopJob = mainCoroutineScope.launch {
+                    delay(ADVERTISE_DURATION_MS.milliseconds)
+                    stop(false)
+                }
             }
             emitConnectionSuccess("progress", "advertisingStarted")
         }
@@ -144,7 +145,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    private fun start(roomName: String, roomCode: String) {
+    private fun start(details: Utils.RoomAd) {
         val adapter = adapter
         if (adapter == null || !adapter.isEnabled) {
             emitConnectionError("bluetooth", "Bluetooth is not ready")
@@ -171,29 +172,55 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         // on). The service id is left out of the packet to make room; guests find the
         // GATT service after connecting. The identity is not put in the Bluetooth device
         // name: renaming the adapter is asynchronous and would rename the user's phone.
-        val payload = Utils.encodeAdvertisement(roomName, roomCode)
+        room = details
+        val advertiseData = buildAdvertiseData(details) ?: return
+
+        val settings = advertiseSettings()
+
+        this.advertiser = advertiser
+        advertiser.startAdvertising(settings, advertiseData, advertiseCallback)
+    }
+
+    private fun advertiseSettings() = AdvertiseSettings.Builder()
+        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+        .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+        .setConnectable(true)
+        .setTimeout(0)
+        .build()
+
+    /** Null (after reporting the error) if the room can't be encoded into the packet. */
+    private fun buildAdvertiseData(details: Utils.RoomAd): AdvertiseData? {
+        val payload = Utils.encodeAdvertisement(details)
         if (payload == null) {
             emitConnectionError(
                 "advertise_failed",
                 "Room name is too long to advertise (16 characters at most)"
             )
-            return
+            return null
         }
-
-        val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-            .setConnectable(true)
-            .setTimeout(0)
-            .build()
-        val advertiseData = AdvertiseData.Builder()
+        return AdvertiseData.Builder()
             .setIncludeDeviceName(false)
             .setIncludeTxPowerLevel(false)
             .addManufacturerData(Constants.MANUFACTURER_ID, payload)
             .build()
+    }
 
-        this.advertiser = advertiser
-        advertiser.startAdvertising(settings, advertiseData, advertiseCallback)
+    /**
+     * Tells scanners how many people are in the room. Advertising data can't be changed
+     * in place, so advertising is restarted with the new count. Does nothing while the
+     * room isn't being advertised; the count is picked up if it starts again.
+     */
+    private fun updatePeople(people: Int) {
+        val current = room ?: return
+        if (current.people == people) return
+        val updated = current.copy(people = people)
+        room = updated
+        val advertiser = advertiser
+        if (!advertising || advertiser == null) return
+
+        val data = buildAdvertiseData(updated) ?: return
+        advertiser.stopAdvertising(advertiseCallback)
+        advertiser.startAdvertising(advertiseSettings(), data, advertiseCallback)
     }
 
     fun stop(closeServer: Boolean) {
@@ -202,7 +229,10 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         advertiser?.stopAdvertising(advertiseCallback)
         advertiser = null
         advertising = false
-        if (closeServer) closeGattServer()
+        if (closeServer) {
+            room = null
+            closeGattServer()
+        }
     }
 
     private val bluetoothGattServerCallback = object : BluetoothGattServerCallback() {

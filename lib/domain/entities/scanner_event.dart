@@ -12,6 +12,8 @@ sealed class ScannerEvent {
         identity: map["name"] as String,
         address: map["address"] as String,
         rssi: (map["rssi"] as num).toInt(),
+        people: (map["people"] as num).toInt(),
+        maxPeople: (map["maxPeople"] as num).toInt(),
       ),
       _ => const UnknownScannerEvent(),
     };
@@ -33,12 +35,18 @@ class ScannerResultEvent extends ScannerEvent {
     required this.identity,
     required this.address,
     required this.rssi,
+    required this.people,
+    required this.maxPeople,
   });
 
   /// What the host advertises: "RoomName · CODE".
   final String identity;
   final String address;
   final int rssi;
+
+  /// People in the room now, and how many it holds.
+  final int people;
+  final int maxPeople;
 
   static const _separator = ' · ';
 

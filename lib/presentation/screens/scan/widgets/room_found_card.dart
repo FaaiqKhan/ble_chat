@@ -1,24 +1,90 @@
 import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:ble_chat/presentation/common/signal_bars.dart';
+import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/scan/widgets/room_code_entry.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
-class FoundRoomCard extends StatelessWidget {
-  const FoundRoomCard({super.key, required this.room, this.onTap});
+/// A room found by the scan. Tapping it opens the 6-digit code entry
+/// ([RoomCodeEntry]); the typed code is handed to [onVerify].
+class FoundRoomCard extends StatefulWidget {
+  const FoundRoomCard({
+    super.key,
+    required this.room,
+    this.onVerify,
+    this.isVerifying = false,
+    this.hasCodeError = false,
+    this.onCodeChanged,
+  });
 
   final FoundRoom room;
-  final VoidCallback? onTap;
+
+  /// Called with the 6 digits when Verify & Join is pressed.
+  final ValueChanged<String>? onVerify;
+
+  /// The code is being checked with the host.
+  final bool isVerifying;
+
+  /// The last code entered was wrong.
+  final bool hasCodeError;
+
+  /// Called as the user types, so a shown error can be cleared.
+  final ValueChanged<String>? onCodeChanged;
+
+  @override
+  State<FoundRoomCard> createState() => _FoundRoomCardState();
+}
+
+class _FoundRoomCardState extends State<FoundRoomCard> {
+  late final ExpansibleController _controller;
+  late final FocusNode _codeFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ExpansibleController();
+    _codeFocus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(FoundRoomCard old) {
+    super.didUpdateWidget(old);
+    // The room became full or too weak while its code entry was open.
+    if (!widget.room.isJoinable && _controller.isExpanded) {
+      _controller.collapse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _codeFocus.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (_controller.isExpanded) {
+      _codeFocus.unfocus();
+      _controller.collapse();
+    } else {
+      _controller.expand();
+      // The code field exists once the body is built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _codeFocus.requestFocus();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final (signalLabel, signalColor) = !room.isAvailable
-        ? ("Not available", cs.onSurfaceVariant)
-        : switch (bluetoothSignalOf(room.rssi)) {
+    final (signalLabel, signalColor) = widget.room.isFull
+        ? ("Room full", palette.badFg)
+        : switch (bluetoothSignalOf(widget.room.rssi)) {
             BluetoothSignal.good => ("Strong signal", palette.okFg),
             BluetoothSignal.weak => ("Weak signal", palette.warnFg),
             BluetoothSignal.poor => ("Very weak signal", palette.badFg),
@@ -26,81 +92,124 @@ class FoundRoomCard extends StatelessWidget {
 
     final radius = BorderRadius.circular(AppRadius.lg);
 
-    // Gone or too weak to connect: dimmed, and taps do nothing.
+    // Gone, full or too weak to connect: dimmed, and taps do nothing.
     return Opacity(
-      opacity: room.isJoinable ? 1 : 0.5,
+      opacity: widget.room.isJoinable ? 1 : 0.5,
       child: Material(
         color: cs.surface,
         shape: RoundedRectangleBorder(
           borderRadius: radius,
           side: BorderSide(color: cs.outline, width: 1.5),
         ),
+        clipBehavior: Clip.antiAlias,
         elevation: 0,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: room.isJoinable ? onTap : null,
-          child: Padding(
+        child: Expansible(
+          controller: _controller,
+          // A closed card forgets what was typed.
+          maintainState: false,
+          // Only the header toggles; taps inside the code entry must not.
+          headerBuilder: (context, animation) => InkWell(
+            onTap: widget.room.isJoinable ? _toggle : null,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _cardBody(context, signalLabel, signalColor),
+            ),
+          ),
+          bodyBuilder: (context, animation) => Container(
             padding: const EdgeInsets.all(16),
-            child: _cardBody(context, signalLabel, signalColor),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: cs.outlineVariant)),
+            ),
+            child: RoomCodeEntry(
+              focusNode: _codeFocus,
+              onVerify: widget.onVerify,
+              isVerifying: widget.isVerifying,
+              hasError: widget.hasCodeError,
+              onChanged: widget.onCodeChanged,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _cardBody(
-    BuildContext context,
-    String signalLabel,
-    Color signalColor,
-  ) {
+  Widget _cardBody(BuildContext context, String label, Color signalColor) {
     final tt = Theme.of(context).textTheme;
     final palette = context.palette;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: palette.primarySoft,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: palette.primaryBorder),
-          ),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            children: [
-              Text(room.name, style: tt.headlineSmall),
-              Text(
-                "·",
-                style: tt.titleLarge?.copyWith(
-                  fontFamily: AppFonts.mono,
-                  color: palette.primaryFg,
-                ),
-              ),
-              Text(
-                room.code,
-                style: tt.titleLarge?.copyWith(
-                  fontFamily: AppFonts.mono,
-                  letterSpacing: 1.3,
-                  color: palette.primaryFg,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            SignalBars(rssi: room.rssi, barWidth: 5),
-            const SizedBox(width: 8),
-            Text(
-              signalLabel,
-              style: tt.bodySmall?.copyWith(
-                fontFamily: AppFonts.mono,
-                color: signalColor,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: palette.primarySoft,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: palette.primaryBorder),
+              ),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text(widget.room.name, style: tt.headlineSmall),
+                  Text(
+                    "·",
+                    style: tt.titleLarge?.copyWith(
+                      fontFamily: AppFonts.mono,
+                      color: palette.primaryFg,
+                    ),
+                  ),
+                  Text(
+                    widget.room.code,
+                    style: tt.titleLarge?.copyWith(
+                      fontFamily: AppFonts.mono,
+                      letterSpacing: 1.3,
+                      color: palette.primaryFg,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SpacerBox(
+              type: SpacerBoxType.horizontal,
+              size: SpacerBoxSize.medium,
+            ),
+            SignalBars(rssi: widget.room.rssi, barWidth: 5),
+          ],
+        ),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                "${widget.room.people} / ${widget.room.maxPeople} people",
+                style: tt.bodyMedium?.copyWith(
+                  fontFamily: AppFonts.mono,
+                  fontWeight: FontWeight.w700,
+                ),
+                overflow: TextOverflow.ellipsis,
+                softWrap: true,
+              ),
+            ),
+
+            if (widget.room.isFull)
+              Text("FULL", style: tt.titleSmall?.copyWith(color: palette.badFg))
+            else if (!widget.room.isAvailable)
+              Text(
+                "NOT AVAILABLE",
+                style: tt.titleSmall?.copyWith(color: palette.badFg),
+              )
+            else
+              Text(
+                _controller.isExpanded ? "ENTER CODE" : "TAP TO JOIN",
+                style: tt.titleSmall?.copyWith(color: palette.primaryFg),
+              ),
           ],
         ),
       ],

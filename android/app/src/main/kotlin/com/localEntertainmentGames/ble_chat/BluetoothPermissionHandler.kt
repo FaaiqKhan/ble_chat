@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -25,6 +26,11 @@ class BluetoothPermissionHandler(private val context: Context) : MethodChannel.M
                 Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
             result.success(null)
+            return
+        }
+
+        if (call.method == "sdkInt") {
+            result.success(Build.VERSION.SDK_INT)
             return
         }
 

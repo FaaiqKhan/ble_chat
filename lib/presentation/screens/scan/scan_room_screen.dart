@@ -143,26 +143,27 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                   ),
                   const SpacerBox(
                     type: SpacerBoxType.vertical,
-                    size: SpacerBoxSize.large,
+                    size: SpacerBoxSize.medium,
                   ),
                   Expanded(
                     child: Center(
                       child: switch (state.status) {
                         ScanSessionStatus.idle => ScanRadar(
                           query: state.query,
-                          isScanning: false,
+                          isScanning: state.isScanning,
                         ),
                         // Nothing found yet: the radar. Once rooms appear they
                         // are listed while the search carries on.
                         ScanSessionStatus.scanning when state.rooms.isEmpty =>
-                          ScanRadar(query: state.query, isScanning: true),
-                        ScanSessionStatus.scanning => FoundRoomList(
-                          rooms: state.rooms,
-                          scanning: true,
-                        ),
+                          ScanRadar(
+                            query: state.query,
+                            isScanning: state.isScanning,
+                          ),
+                        ScanSessionStatus.scanning ||
                         ScanSessionStatus.scanned => FoundRoomList(
+                          query: _query,
                           rooms: state.rooms,
-                          scanning: false,
+                          isScanning: state.isScanning,
                         ),
                         ScanSessionStatus.notFound => Align(
                           alignment: Alignment.topCenter,

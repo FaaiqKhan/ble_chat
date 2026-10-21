@@ -48,6 +48,7 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
       await _hostSessionRepository.start(
         name: state.roomName,
         code: state.code,
+        maxPeople: state.maxPeople,
       );
     } catch (_) {
       emit(_failedAt(HostSessionProgressStep.bluetooth));

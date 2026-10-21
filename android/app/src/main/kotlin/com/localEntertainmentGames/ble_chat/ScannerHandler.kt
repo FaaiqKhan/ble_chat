@@ -93,12 +93,11 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             val record = result?.scanRecord ?: return
             // The host advertises its room as manufacturer data (see Utils.encodeAdvertisement).
-            val identity = Utils.decodeAdvertisement(
+            val room = Utils.decodeAdvertisement(
                 record.getManufacturerSpecificData(Constants.MANUFACTURER_ID)
             ) ?: return
             // Only the name is searched, so a code can't make a different room match.
-            val roomName = identity.substringBeforeLast(Utils.IDENTITY_SEPARATOR)
-            if (!roomName.contains(query, ignoreCase = true)) return
+            if (!room.name.contains(query, ignoreCase = true)) return
             val address = result.device.address
 
             // Decide atomically: a new host, or one whose interval has passed, is reported.
@@ -117,8 +116,10 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
             val event = mapOf(
                 "type" to "scan_result",
                 "address" to address,
-                "name" to identity,
+                "name" to room.identity,
                 "rssi" to result.rssi,
+                "people" to room.people,
+                "maxPeople" to room.maxPeople,
             )
             mainCoroutineScope.launch { eventSink?.success(event) }
         }

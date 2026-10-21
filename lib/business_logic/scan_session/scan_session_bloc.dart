@@ -53,7 +53,11 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
       (_) => add(StaleRoomsCheck()),
     );
     emit(
-      ScanSessionState(query: event.query, status: ScanSessionStatus.scanning),
+      ScanSessionState(
+        query: event.query,
+        status: ScanSessionStatus.scanning,
+        isScanning: true,
+      ),
     );
 
     // Listen before asking native to start, so no early event is missed.
@@ -65,7 +69,7 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
     try {
       await _scanSessionRepository.startScanning(event.query);
     } catch (_) {
-      emit(state.copyWith(status: ScanSessionStatus.failed));
+      emit(state.copyWith(status: ScanSessionStatus.failed, isScanning: false));
       _staleTimer?.cancel();
       await _scanSubscription?.cancel();
     }
@@ -131,10 +135,12 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
       status: state.rooms.isEmpty
           ? ScanSessionStatus.notFound
           : ScanSessionStatus.scanned,
+      isScanning: false,
     ),
     ScannerFailedEvent() => state.copyWith(
       status: ScanSessionStatus.failed,
       errorMessage: event.message,
+      isScanning: false,
     ),
     UnknownScannerEvent() => state,
   };
@@ -162,18 +168,27 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
           code: event.roomCode,
           address: event.address,
           rssi: rssi,
+          people: event.people,
+          maxPeople: event.maxPeople,
         ),
       ];
     }
 
-    // Heard again, so it is back even if its bars stay the same.
+    // Heard again, so it is back even if its bars stay the same. A new people
+    // count always shows: it can make the room full.
     final shown = state.rooms[i];
-    if (shown.isAvailable && !signalLooksDifferent(shown.rssi, rssi)) {
+    if (shown.isAvailable &&
+        shown.people == event.people &&
+        !signalLooksDifferent(shown.rssi, rssi)) {
       return state.rooms;
     }
 
     final rooms = [...state.rooms];
-    rooms[i] = shown.copyWith(rssi: rssi, isAvailable: true);
+    rooms[i] = shown.copyWith(
+      rssi: rssi,
+      people: event.people,
+      isAvailable: true,
+    );
     return rooms;
   }
 

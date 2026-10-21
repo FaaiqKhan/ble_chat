@@ -1,5 +1,19 @@
 # Changelog
 
+# [1.8.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.7.0...v1.8.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* spacing ([a61fca4](https://github.com/FaaiqKhan/ble_chat/commit/a61fca46c589963d0ecbbcb88e9a2261dca5eeee))
+
+
+### Features
+
+* design updates and 6 digit code for auth ([666309b](https://github.com/FaaiqKhan/ble_chat/commit/666309b3e8a62498dc82ea48b64bcf05ed862fc1))
+* location permission for android 10 and below ([5bb5b00](https://github.com/FaaiqKhan/ble_chat/commit/5bb5b00bdc0a152ccac91431be9e312b0e3e6490))
+* state handling using is scanning ([633f396](https://github.com/FaaiqKhan/ble_chat/commit/633f39696e34c8f4c46d4057d530e19367663624))
+
 # [1.7.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.6.1...v1.7.0) (2026-10-20)
 
 

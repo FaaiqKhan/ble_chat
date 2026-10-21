@@ -34,16 +34,17 @@ class FoundRoomList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              scanning
-                  ? "SEARCHING · ${rooms.length} FOUND"
-                  : "${rooms.length} ${rooms.length == 1 ? "ROOM" : "ROOMS"} FOUND",
-              style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
-            ),
-            if (scanning) ...[
-              const SizedBox(width: 8),
+        if (scanning)
+          Row(
+            children: [
+              Text(
+                "SEARCHING · ${rooms.length} FOUND",
+                style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
+              ),
+              const SpacerBox(
+                type: SpacerBoxType.horizontal,
+                size: SpacerBoxSize.medium,
+              ),
               SizedBox(
                 width: 10,
                 height: 10,
@@ -53,10 +54,14 @@ class FoundRoomList extends StatelessWidget {
                 ),
               ),
             ],
-          ],
-        ),
-        if (rooms.length > 1) ...[
-          Text("${rooms.length} rooms match “$query”", style: tt.displayMedium),
+          ),
+        if (scanning)
+          const SpacerBox(
+            type: SpacerBoxType.vertical,
+            size: SpacerBoxSize.medium,
+          ),
+        if (rooms.length == 1) ...[
+          Text("${rooms.length} rooms match “$query”", style: tt.titleLarge),
           const SpacerBox(
             type: SpacerBoxType.vertical,
             size: SpacerBoxSize.small,

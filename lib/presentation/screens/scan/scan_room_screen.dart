@@ -143,7 +143,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                   ),
                   const SpacerBox(
                     type: SpacerBoxType.vertical,
-                    size: SpacerBoxSize.large,
+                    size: SpacerBoxSize.medium,
                   ),
                   Expanded(
                     child: Center(

@@ -39,5 +39,15 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             ScannerHandler.METHOD_CHANNEL
         ).setMethodCallHandler(scannerHandler)
+
+        val connectHandler = ConnectHandler(applicationContext)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ConnectHandler.EVENT_CHANNEL
+        ).setStreamHandler(connectHandler)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ConnectHandler.METHOD_CHANNEL
+        ).setMethodCallHandler(connectHandler)
     }
 }

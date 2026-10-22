@@ -63,11 +63,17 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     private fun finishWrite(error: Pair<String, String>?) {
         val result = pendingWrite.getAndSet(null) ?: return
         scope.launch {
-            if (error == null) result.success(null) else result.error(error.first, error.second, null)
+            if (error == null) result.success(null) else result.error(
+                error.first,
+                error.second,
+                null
+            )
         }
     }
+
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private var adapter = bluetoothManager.adapter
+
     // Written from the main thread (connect / disconnect) and the GATT thread (callbacks).
     @Volatile
     private var bluetoothGatt: BluetoothGatt? = null
@@ -212,8 +218,6 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
 
             "write" -> writeToCharacteristic(call.arguments, result)
 
-            "setNotify" -> {}
-
             else -> result.notImplemented()
         }
     }
@@ -231,18 +235,30 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
 
     private fun connectToGATTServer(arguments: Any?) {
         val hostDeviceAddress = (arguments as String?) ?: run {
-            eventSink?.error("invalid_argument", "Device address is required", null)
+            eventSink?.error(
+                "invalid_argument",
+                "Device address is required",
+                null
+            )
             return
         }
         val adapter = adapter ?: run {
-            eventSink?.error("unavailable", "Bluetooth is not available", null)
+            eventSink?.error(
+                "unavailable",
+                "Bluetooth is not available",
+                null
+            )
             return
         }
         bluetoothGatt?.close()
         val hostDevice = try {
             adapter.getRemoteDevice(hostDeviceAddress)
-        } catch (e: IllegalArgumentException) {
-            eventSink?.error("invalid_argument", "Not a valid device address", null)
+        } catch (_: IllegalArgumentException) {
+            eventSink?.error(
+                "invalid_argument",
+                "Not a valid device address",
+                null
+            )
             return
         }
         // autoConnect = false: connect now and fail fast. true means "connect whenever
@@ -282,12 +298,20 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                     BluetoothDevice.TRANSPORT_LE
                 )
             }
-        } catch (e: SecurityException) {
-            eventSink?.error("permission", "Bluetooth permission is missing", null)
+        } catch (_: SecurityException) {
+            eventSink?.error(
+                "permission",
+                "Bluetooth permission is missing",
+                null
+            )
             return
         }
         if (gatt == null) {
-            eventSink?.error("connect_failed", "Could not start the connection", null)
+            eventSink?.error(
+                "connect_failed",
+                "Could not start the connection",
+                null
+            )
             return
         }
         bluetoothGatt = gatt
@@ -305,21 +329,33 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     /**
      * Writes [arguments] (bytes from Dart) to the room's characteristic. Dart doesn't
      * name the characteristic; the one found during service discovery is used. The
-     * call is answered once the host confirms the write.
+     * call is answered once the host confirms to write.
      */
     private fun writeToCharacteristic(arguments: Any?, result: MethodChannel.Result) {
         val data = arguments as? ByteArray ?: run {
-            result.error("invalid_argument", "Bytes to write are required", null)
+            result.error(
+                "invalid_argument",
+                "Bytes to write are required",
+                null
+            )
             return
         }
         val gatt = bluetoothGatt
         val characteristic = bleCharacteristic
         if (gatt == null || characteristic == null) {
-            result.error("not_connected", "Not connected to a room", null)
+            result.error(
+                "not_connected",
+                "Not connected to a room",
+                null
+            )
             return
         }
         if (!pendingWrite.compareAndSet(null, result)) {
-            result.error("busy", "Another write is still in progress", null)
+            result.error(
+                "busy",
+                "Another write is still in progress",
+                null
+            )
             return
         }
 
@@ -338,7 +374,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                     gatt.writeCharacteristic(characteristic)
                 }
             }
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             false
         }
         // The write never left the phone, so no callback will answer.

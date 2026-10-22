@@ -1,5 +1,16 @@
 # Changelog
 
+# [1.9.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.8.0...v1.9.0) (2026-10-22)
+
+
+### Features
+
+* connect handler implementation ([4d404cb](https://github.com/FaaiqKhan/ble_chat/commit/4d404cb9a4acc2a1a218d31f395896410cdff3a7))
+* discovering services ([d26ab99](https://github.com/FaaiqKhan/ble_chat/commit/d26ab9975b5baa49ef4ffb59bbfacb2847829afa))
+* enable notifier ([70957e4](https://github.com/FaaiqKhan/ble_chat/commit/70957e495397cf33b4cb7000fdc9970755705419))
+* failer handling ([2373db3](https://github.com/FaaiqKhan/ble_chat/commit/2373db3e9028573e41265393da68b704d10bffac))
+* message identifier and send from host as well ([7c26976](https://github.com/FaaiqKhan/ble_chat/commit/7c269760453f9979974e1519df33e715a337f189))
+
 # [1.8.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.7.0...v1.8.0) (2026-10-21)
 
 

@@ -100,7 +100,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                             "status" to "connected"
                         )
                     )
-                    // The `gatt` the callback gives: the field may still be null here,
+                    // The `GATT` the callback gives: the field may still be null here,
                     // because this can run before connectGatt() returns and it is assigned.
                     gatt?.discoverServices()
                 }
@@ -138,39 +138,21 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                 emitError("service_discovery_failed", "Service discovery failed (status $status)")
                 return
             }
-            bleCharacteristic = findGATTServerCharacteristics(
+            val characteristic = findGATTServerCharacteristics(
                 gatt,
                 Constants.SERVICE_UUID,
                 Constants.CHARACTERISTIC_UUID
             )
-            if (bleCharacteristic == null) {
+            if (characteristic == null) {
                 emitError("service_not_found", "This device is not hosting a room")
                 return
             }
-            emit(
-                mapOf(
-                    "type" to "service",
-                    "status" to "discovered"
-                )
-            )
-        }
-
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            value: ByteArray,
-            status: Int
-        ) {
-
-        }
-
-        override fun onDescriptorRead(
-            gatt: BluetoothGatt,
-            descriptor: BluetoothGattDescriptor,
-            status: Int,
-            value: ByteArray
-        ) {
-
+            bleCharacteristic = characteristic
+            // Ready is reported from onDescriptorWrite, once notifications are on:
+            // GATT runs one operation at a time, so a write sent before that fails.
+            if (!setNotify(gatt, characteristic)) {
+                emitError("notify_failed", "Could not enable notifications")
+            }
         }
 
         override fun onCharacteristicWrite(
@@ -182,6 +164,15 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                 if (status == BluetoothGatt.GATT_SUCCESS) null
                 else "write_failed" to "Write failed (status $status)"
             )
+            // The host confirmed it got the message.
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                emit(
+                    mapOf(
+                        "type" to "message",
+                        "status" to "sent"
+                    )
+                )
+            }
         }
 
         override fun onDescriptorWrite(
@@ -189,7 +180,21 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             descriptor: BluetoothGattDescriptor?,
             status: Int
         ) {
-
+            if (descriptor?.uuid != Constants.CCCD_UUID) return
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                emitError(
+                    "notify_failed",
+                    "Could not enable notifications (status $status)"
+                )
+                return
+            }
+            // Connected, service found and notifications on: the room can be used.
+            emit(
+                mapOf(
+                    "type" to "service",
+                    "status" to "discovered"
+                )
+            )
         }
 
         override fun onCharacteristicChanged(
@@ -395,5 +400,26 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         characteristicUuid: UUID
     ): BluetoothGattCharacteristic? {
         return gatt.getService(serviceUuid)?.getCharacteristic(characteristicUuid)
+    }
+
+    /**
+     * Turns on notifications from [characteristic]: tells this phone to deliver them, then
+     * writes the host's CCCD descriptor so it sends them. Returns false if either step
+     * could not start; otherwise the answer arrives in onDescriptorWrite.
+     */
+    @Suppress("DEPRECATION")
+    private fun setNotify(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic,
+    ): Boolean {
+        if (!gatt.setCharacteristicNotification(characteristic, true)) return false
+        val descriptor = characteristic.getDescriptor(Constants.CCCD_UUID) ?: return false
+        val value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            gatt.writeDescriptor(descriptor, value) == BluetoothStatusCodes.SUCCESS
+        } else {
+            descriptor.value = value
+            gatt.writeDescriptor(descriptor)
+        }
     }
 }

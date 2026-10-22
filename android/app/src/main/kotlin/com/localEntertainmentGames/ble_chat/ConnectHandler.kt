@@ -33,6 +33,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         const val METHOD_CHANNEL = "connect/methods"
 
         private const val CONNECTION_SETTINGS_SDK = 37
+        private const val REQUESTED_MTU = 247
     }
 
     // GATT callbacks run on this thread, never on the main thread, so a slow callback
@@ -59,11 +60,18 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     // main thread, answered from the GATT thread, hence the atomic holder.
     private val pendingWrite = AtomicReference<MethodChannel.Result?>(null)
 
+    // Id of the message that write is carrying; sent back when the host confirms it.
+    private val pendingMessageId = AtomicReference<String?>(null)
+
+    // Largest write is mtu - 3 bytes (3 are the protocol's own). 23 until negotiated.
+    @Volatile
+    private var mtu = 23
+
     /** Answers the waiting write, if any, on the main thread (Result requires it). */
-    private fun finishWrite(error: Pair<String, String>?) {
+    private fun finishWrite(error: Pair<String, String>?, value: Any? = null) {
         val result = pendingWrite.getAndSet(null) ?: return
         scope.launch {
-            if (error == null) result.success(null) else result.error(
+            if (error == null) result.success(value) else result.error(
                 error.first,
                 error.second,
                 null
@@ -102,7 +110,13 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                     )
                     // The `GATT` the callback gives: the field may still be null here,
                     // because this can run before connectGatt() returns and it is assigned.
-                    gatt?.discoverServices()
+                    // Before Android 17 the MTU isn't raised automatically; ask for a bigger
+                    // one first and discover services once it is answered (onMtuChanged).
+                    if (Build.VERSION.SDK_INT >= CONNECTION_SETTINGS_SDK ||
+                        gatt?.requestMtu(REQUESTED_MTU) != true
+                    ) {
+                        gatt?.discoverServices()
+                    }
                 }
 
                 BluetoothGatt.STATE_DISCONNECTING -> {
@@ -133,6 +147,12 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             }
         }
 
+        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) this@ConnectHandler.mtu = mtu
+            // Android 17 negotiates the MTU itself and discovers services right away.
+            if (Build.VERSION.SDK_INT < CONNECTION_SETTINGS_SDK) gatt?.discoverServices()
+        }
+
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS || gatt == null) {
                 emitError("service_discovery_failed", "Service discovery failed (status $status)")
@@ -160,16 +180,19 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
+            val id = pendingMessageId.getAndSet(null)
             finishWrite(
                 if (status == BluetoothGatt.GATT_SUCCESS) null
-                else "write_failed" to "Write failed (status $status)"
+                else "write_failed" to "Write failed (status $status)",
+                value = id
             )
             // The host confirmed it got the message.
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 emit(
                     mapOf(
                         "type" to "message",
-                        "status" to "sent"
+                        "status" to "sent",
+                        "id" to id
                     )
                 )
             }
@@ -197,13 +220,41 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             )
         }
 
+        // Android 13+ calls this one.
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray
         ) {
-
+            emitReceived(value)
         }
+
+        // Android 12 and older never call the method above; the value is on the
+        // characteristic. (Android 13+ doesn't call this one when the above is overridden.)
+        @Deprecated("Used for Android 12 and older")
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+            // Copied: the same characteristic object is reused by the next notification.
+            characteristic?.value?.copyOf()?.let(::emitReceived)
+        }
+    }
+
+    /** Hands a message relayed by the host to Dart: who sent it, its id, and the text bytes. */
+    private fun emitReceived(value: ByteArray) {
+        val message = Utils.decodeMessage(value) ?: return
+        emit(
+            mapOf(
+                "type" to "message",
+                "status" to "received",
+                "id" to message.id,
+                "sender" to message.sender,
+                "data" to message.text
+            )
+        )
     }
 
     override fun onMethodCall(
@@ -327,20 +378,40 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
-        // It belonged to the connection that just ended.
+        // They belonged to the connection that just ended.
         bleCharacteristic = null
+        pendingMessageId.set(null)
+        mtu = 23
     }
 
     /**
-     * Writes [arguments] (bytes from Dart) to the room's characteristic. Dart doesn't
-     * name the characteristic; the one found during service discovery is used. The
-     * call is answered once the host confirms to write.
+     * Sends a chat message. [arguments] is a map: `sender` (the name to show, at most 20
+     * bytes) and `text` (the message bytes). Dart doesn't name the characteristic; the
+     * one found during service discovery is used. A random message id is generated here.
+     * The call is answered with that id once the host confirms the write.
      */
     private fun writeToCharacteristic(arguments: Any?, result: MethodChannel.Result) {
-        val data = arguments as? ByteArray ?: run {
+        val args = arguments as? Map<*, *>
+        val sender = args?.get("sender") as? String
+        val text = args?.get("text") as? ByteArray
+        if (sender == null || text == null) {
             result.error(
                 "invalid_argument",
-                "Bytes to write are required",
+                "A sender name and the text bytes are required",
+                null
+            )
+            return
+        }
+        // The id is made here, so Dart gets it back when the host confirms the message.
+        val messageId = Utils.newMessageId()
+        val data = Utils.encodeMessage(Utils.ChatMessage(messageId, sender, text)) ?: run {
+            result.error("invalid_argument", "The sender name is too long", null)
+            return
+        }
+        if (data.size > mtu - 3) {
+            result.error(
+                "message_too_long",
+                "A message can be at most ${mtu - 3 - data.size + text.size} bytes",
                 null
             )
             return
@@ -363,6 +434,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             )
             return
         }
+        pendingMessageId.set(messageId)
 
         val started = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -383,7 +455,10 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             false
         }
         // The write never left the phone, so no callback will answer.
-        if (!started) finishWrite("write_failed" to "Could not start the write")
+        if (!started) {
+            pendingMessageId.set(null)
+            finishWrite("write_failed" to "Could not start the write")
+        }
     }
 
     /** Stops everything. Call when the Flutter engine goes away. */

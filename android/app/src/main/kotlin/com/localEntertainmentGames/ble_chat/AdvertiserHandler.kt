@@ -2,17 +2,20 @@ package com.localEntertainmentGames.ble_chat
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
+import android.os.Build
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -20,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -36,6 +40,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         const val EVENT_CHANNEL = "bleAdvertiser/events"
         const val METHOD_CHANNEL = "bleAdvertiser/methods"
         const val ADVERTISE_DURATION_MS = 60_000L
+        private const val DEFAULT_MTU = 23
     }
 
     private var bluetoothManager = context.getSystemService(BluetoothManager::class.java)
@@ -44,8 +49,12 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private var gattServer: BluetoothGattServer? = null
     private var characteristic: BluetoothGattCharacteristic? = null
 
-    private val subscribers = mutableSetOf<BluetoothDevice>()
-    private val connectedDevices = mutableSetOf<BluetoothDevice>()
+    // Changed from GATT server callbacks (Binder threads), hence concurrent sets.
+    private val subscribers: MutableSet<BluetoothDevice> = ConcurrentHashMap.newKeySet()
+    private val connectedDevices: MutableSet<BluetoothDevice> = ConcurrentHashMap.newKeySet()
+
+    // Each guest's negotiated MTU. A notification can carry at most mtu - 3 bytes.
+    private val deviceMtu = ConcurrentHashMap<BluetoothDevice, Int>()
 
     private var eventSink: EventChannel.EventSink? = null
     private var methodResult: MethodChannel.Result? = null
@@ -97,6 +106,8 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 result.success(null)
                 updatePeople(call.arguments as? Int ?: return)
             }
+
+            "send" -> sendToGuests(call.arguments, result)
 
             "stop" -> {
                 // Completion is reported with the "roomClosed" event.
@@ -241,6 +252,20 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
 
         override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
+            device ?: return
+            when (newState) {
+                BluetoothProfile.STATE_CONNECTED -> connectedDevices.add(device)
+                BluetoothProfile.STATE_DISCONNECTED -> {
+                    connectedDevices.remove(device)
+                    deviceMtu.remove(device)
+                    // A guest that left no longer receives messages.
+                    subscribers.remove(device)
+                }
+            }
+        }
+
+        override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
+            if (device != null) deviceMtu[device] = mtu
         }
 
         override fun onCharacteristicReadRequest(
@@ -260,6 +285,32 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             offset: Int,
             value: ByteArray?
         ) {
+            if (device == null) return
+            val message = Utils.decodeMessage(value)
+            val isRoomWrite = characteristic?.uuid == Constants.CHARACTERISTIC_UUID
+            // Without this answer the guest's write never completes and, after about 30
+            // seconds, the connection is dropped.
+            if (responseNeeded) {
+                val status = if (isRoomWrite && message != null) {
+                    BluetoothGatt.GATT_SUCCESS
+                } else {
+                    BluetoothGatt.GATT_FAILURE
+                }
+                gattServer?.sendResponse(device, requestId, status, offset, value)
+            }
+            if (!isRoomWrite || message == null || value == null) return
+
+            // Guests don't talk to each other: the host passes the message on, unchanged,
+            // to everyone else subscribed, and tells its own Dart side.
+            notifySubscribers(value, except = device)
+            emitEvent(
+                mapOf(
+                    "type" to "message",
+                    "id" to message.id,
+                    "sender" to message.sender,
+                    "data" to message.text,
+                )
+            )
         }
 
         override fun onDescriptorReadRequest(
@@ -280,7 +331,83 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             offset: Int,
             value: ByteArray?
         ) {
+            if (device == null) return
+            var status = BluetoothGatt.GATT_SUCCESS
+            if (descriptor?.uuid == Constants.CCCD_UUID) {
+                // The guest switching notifications on or off for this characteristic.
+                when {
+                    value contentEquals BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE ->
+                        subscribers.add(device)
+
+                    value contentEquals BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE ->
+                        subscribers.remove(device)
+
+                    else -> status = BluetoothGatt.GATT_FAILURE
+                }
+            } else {
+                status = BluetoothGatt.GATT_FAILURE
+            }
+            if (responseNeeded) {
+                gattServer?.sendResponse(device, requestId, status, offset, value)
+            }
         }
+    }
+
+    /**
+     * Sends a message from the host to every subscribed guest. [arguments] is a map:
+     * `sender` (the name to show, at most 20 bytes) and `text` (the message bytes).
+     * Answers with the random message id. Notifications aren't confirmed by guests, so
+     * success means it was handed to the Bluetooth stack for each subscriber.
+     */
+    private fun sendToGuests(arguments: Any?, result: MethodChannel.Result) {
+        val args = arguments as? Map<*, *>
+        val sender = args?.get("sender") as? String
+        val text = args?.get("text") as? ByteArray
+        if (sender == null || text == null) {
+            result.error("invalid_argument", "A sender name and the text bytes are required", null)
+            return
+        }
+        if (gattServer == null || characteristic == null) {
+            result.error("not_hosting", "The room is not open", null)
+            return
+        }
+        val id = Utils.newMessageId()
+        val payload = Utils.encodeMessage(Utils.ChatMessage(id, sender, text)) ?: run {
+            result.error("invalid_argument", "The sender name is too long", null)
+            return
+        }
+        // The smallest guest limit decides, so every guest gets the same message.
+        val limit = (subscribers.minOfOrNull { deviceMtu[it] ?: DEFAULT_MTU } ?: DEFAULT_MTU) - 3
+        if (payload.size > limit) {
+            result.error(
+                "message_too_long",
+                "A message can be at most ${limit - payload.size + text.size} bytes",
+                null
+            )
+            return
+        }
+        notifySubscribers(payload, except = null)
+        result.success(id)
+    }
+
+    /** Sends [value] to every subscribed guest except [except] (the one it came from). */
+    @Suppress("DEPRECATION")
+    private fun notifySubscribers(value: ByteArray, except: BluetoothDevice?) {
+        val server = gattServer ?: return
+        val characteristic = characteristic ?: return
+        for (guest in subscribers) {
+            if (guest == except) continue
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                server.notifyCharacteristicChanged(guest, characteristic, false, value)
+            } else {
+                characteristic.value = value
+                server.notifyCharacteristicChanged(guest, characteristic, false)
+            }
+        }
+    }
+
+    private fun emitEvent(event: Map<String, Any?>) {
+        mainCoroutineScope.launch { eventSink?.success(event) }
     }
 
     private fun openGattServer() {

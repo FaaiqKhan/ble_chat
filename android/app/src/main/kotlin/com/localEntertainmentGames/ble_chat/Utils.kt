@@ -63,4 +63,41 @@ object Utils {
             maxPeople = (data["maxPeople"] as? Int) ?: 0,
         )
     }
+
+    /** A chat message as it travels between phones. */
+    class ChatMessage(val id: String, val sender: String, val text: ByteArray)
+
+    // Message payload: 8 id bytes, 1 sender-length byte, the sender name, then the text.
+    private const val MESSAGE_ID_BYTES = 8
+    private const val MAX_SENDER_BYTES = 20
+    private val random = java.security.SecureRandom()
+
+    /** Random id for a new message, as 16 hex characters. */
+    fun newMessageId(): String {
+        val bytes = ByteArray(MESSAGE_ID_BYTES).also(random::nextBytes)
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    /** Null if the id isn't from [newMessageId] or the sender name is too long. */
+    fun encodeMessage(message: ChatMessage): ByteArray? {
+        val sender = message.sender.toByteArray(Charsets.UTF_8)
+        if (sender.size > MAX_SENDER_BYTES || message.id.length != MESSAGE_ID_BYTES * 2) return null
+        val id = ByteArray(MESSAGE_ID_BYTES) {
+            message.id.substring(it * 2, it * 2 + 2).toIntOrNull(16)?.toByte() ?: return null
+        }
+        return id + sender.size.toByte() + sender + message.text
+    }
+
+    /** Reverse of [encodeMessage]; null if [payload] isn't a well-formed message. */
+    fun decodeMessage(payload: ByteArray?): ChatMessage? {
+        if (payload == null || payload.size <= MESSAGE_ID_BYTES) return null
+        val senderLength = payload[MESSAGE_ID_BYTES].toInt() and 0xFF
+        val textStart = MESSAGE_ID_BYTES + 1 + senderLength
+        if (textStart > payload.size) return null
+        return ChatMessage(
+            id = payload.copyOfRange(0, MESSAGE_ID_BYTES).joinToString("") { "%02x".format(it) },
+            sender = String(payload, MESSAGE_ID_BYTES + 1, senderLength, Charsets.UTF_8),
+            text = payload.copyOfRange(textStart, payload.size),
+        )
+    }
 }

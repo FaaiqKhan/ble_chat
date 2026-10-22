@@ -1,6 +1,5 @@
 package com.localEntertainmentGames.ble_chat
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -9,6 +8,7 @@ import android.bluetooth.BluetoothGattConnectionSettings
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -21,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 @SuppressLint("MissingPermission")
 class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHandler,
@@ -46,18 +48,105 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         scope.launch { eventSink?.success(event) }
     }
 
+    /** Reports a failure to Dart as a stream error. Main thread only, like [emit]. */
+    private fun emitError(code: String, message: String) {
+        scope.launch { eventSink?.error(code, message, null) }
+    }
+
     private var eventSink: EventChannel.EventSink? = null
+
+    // The write waiting for onCharacteristicWrite. GATT allows one at a time. Set on the
+    // main thread, answered from the GATT thread, hence the atomic holder.
+    private val pendingWrite = AtomicReference<MethodChannel.Result?>(null)
+
+    /** Answers the waiting write, if any, on the main thread (Result requires it). */
+    private fun finishWrite(error: Pair<String, String>?) {
+        val result = pendingWrite.getAndSet(null) ?: return
+        scope.launch {
+            if (error == null) result.success(null) else result.error(error.first, error.second, null)
+        }
+    }
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private var adapter = bluetoothManager.adapter
+    // Written from the main thread (connect / disconnect) and the GATT thread (callbacks).
+    @Volatile
     private var bluetoothGatt: BluetoothGatt? = null
+
+    @Volatile
+    private var bleCharacteristic: BluetoothGattCharacteristic? = null
 
     private val bluetoothGattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
+            when (newState) {
+                BluetoothGatt.STATE_CONNECTING -> {
+                    emit(
+                        mapOf(
+                            "type" to "connection",
+                            "status" to "connecting"
+                        )
+                    )
+                }
 
+                BluetoothGatt.STATE_CONNECTED -> {
+                    emit(
+                        mapOf(
+                            "type" to "connection",
+                            "status" to "connected"
+                        )
+                    )
+                    // The `gatt` the callback gives: the field may still be null here,
+                    // because this can run before connectGatt() returns and it is assigned.
+                    gatt?.discoverServices()
+                }
+
+                BluetoothGatt.STATE_DISCONNECTING -> {
+                    emit(
+                        mapOf(
+                            "type" to "connection",
+                            "status" to "disconnecting"
+                        )
+                    )
+                }
+
+                BluetoothGatt.STATE_DISCONNECTED -> {
+                    // A non-zero status means the connection failed or was dropped,
+                    // not that we asked to disconnect (133 is the common generic failure).
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        emitError("connection_failed", "Connection failed (status $status)")
+                    }
+                    emit(
+                        mapOf(
+                            "type" to "connection",
+                            "status" to "disconnected"
+                        )
+                    )
+                    disconnectFromGATTServer()
+                }
+
+                else -> {}
+            }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-
+            if (status != BluetoothGatt.GATT_SUCCESS || gatt == null) {
+                emitError("service_discovery_failed", "Service discovery failed (status $status)")
+                return
+            }
+            bleCharacteristic = findGATTServerCharacteristics(
+                gatt,
+                Constants.SERVICE_UUID,
+                Constants.CHARACTERISTIC_UUID
+            )
+            if (bleCharacteristic == null) {
+                emitError("service_not_found", "This device is not hosting a room")
+                return
+            }
+            emit(
+                mapOf(
+                    "type" to "service",
+                    "status" to "discovered"
+                )
+            )
         }
 
         override fun onCharacteristicRead(
@@ -83,7 +172,10 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
-
+            finishWrite(
+                if (status == BluetoothGatt.GATT_SUCCESS) null
+                else "write_failed" to "Write failed (status $status)"
+            )
         }
 
         override fun onDescriptorWrite(
@@ -118,7 +210,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                 disconnectFromGATTServer()
             }
 
-            "write" -> {}
+            "write" -> writeToCharacteristic(call.arguments, result)
 
             "setNotify" -> {}
 
@@ -147,49 +239,110 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             return
         }
         bluetoothGatt?.close()
-        val hostDevice = adapter.getRemoteDevice(hostDeviceAddress)
+        val hostDevice = try {
+            adapter.getRemoteDevice(hostDeviceAddress)
+        } catch (e: IllegalArgumentException) {
+            eventSink?.error("invalid_argument", "Not a valid device address", null)
+            return
+        }
         // autoConnect = false: connect now and fail fast. true means "connect whenever
         // the device shows up", which is slow and meant for reconnecting to a known
         // device. TRANSPORT_LE stops Android trying classic Bluetooth on dual-mode phones.
         @Suppress("DEPRECATION")
-        bluetoothGatt = when {
-            Build.VERSION.SDK_INT >= CONNECTION_SETTINGS_SDK -> {
-                val settings = BluetoothGattConnectionSettings.Builder()
-                    .setTransport(BluetoothDevice.TRANSPORT_LE)
-                    .setAutoConnectEnabled(false)
-                    .setAutomaticMtuEnabled(true)
-                    .build()
-                hostDevice.connectGatt(
-                    settings,
-                    { gattHandler.post(it) },
-                    bluetoothGattCallback
+        val gatt = try {
+            when {
+                Build.VERSION.SDK_INT >= CONNECTION_SETTINGS_SDK -> {
+                    val settings = BluetoothGattConnectionSettings.Builder()
+                        .setTransport(BluetoothDevice.TRANSPORT_LE)
+                        .setAutoConnectEnabled(false)
+                        .setAutomaticMtuEnabled(true)
+                        .build()
+                    hostDevice.connectGatt(
+                        settings,
+                        { gattHandler.post(it) },
+                        bluetoothGattCallback
+                    )
+                }
+
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> hostDevice.connectGatt(
+                    context,
+                    false,
+                    bluetoothGattCallback,
+                    BluetoothDevice.TRANSPORT_LE,
+                    BluetoothDevice.PHY_LE_1M_MASK,
+                    gattHandler
+                )
+
+                // minSdk is 24, so this is Android 7.x: no Handler overload, but its
+                // callbacks already arrive on a Binder thread.
+                else -> hostDevice.connectGatt(
+                    context,
+                    false,
+                    bluetoothGattCallback,
+                    BluetoothDevice.TRANSPORT_LE
                 )
             }
-
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> hostDevice.connectGatt(
-                context,
-                false,
-                bluetoothGattCallback,
-                BluetoothDevice.TRANSPORT_LE,
-                BluetoothDevice.PHY_LE_1M_MASK,
-                gattHandler
-            )
-
-            // minSdk is 24, so this is Android 7.x: no Handler overload, but its
-            // callbacks already arrive on a Binder thread.
-            else -> hostDevice.connectGatt(
-                context,
-                false,
-                bluetoothGattCallback,
-                BluetoothDevice.TRANSPORT_LE
-            )
+        } catch (e: SecurityException) {
+            eventSink?.error("permission", "Bluetooth permission is missing", null)
+            return
         }
+        if (gatt == null) {
+            eventSink?.error("connect_failed", "Could not start the connection", null)
+            return
+        }
+        bluetoothGatt = gatt
     }
 
     private fun disconnectFromGATTServer() {
+        finishWrite("disconnected" to "Disconnected before the write finished")
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
+        // It belonged to the connection that just ended.
+        bleCharacteristic = null
+    }
+
+    /**
+     * Writes [arguments] (bytes from Dart) to the room's characteristic. Dart doesn't
+     * name the characteristic; the one found during service discovery is used. The
+     * call is answered once the host confirms the write.
+     */
+    private fun writeToCharacteristic(arguments: Any?, result: MethodChannel.Result) {
+        val data = arguments as? ByteArray ?: run {
+            result.error("invalid_argument", "Bytes to write are required", null)
+            return
+        }
+        val gatt = bluetoothGatt
+        val characteristic = bleCharacteristic
+        if (gatt == null || characteristic == null) {
+            result.error("not_connected", "Not connected to a room", null)
+            return
+        }
+        if (!pendingWrite.compareAndSet(null, result)) {
+            result.error("busy", "Another write is still in progress", null)
+            return
+        }
+
+        val started = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeCharacteristic(
+                    characteristic,
+                    data,
+                    BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                ) == BluetoothStatusCodes.SUCCESS
+            } else {
+                @Suppress("DEPRECATION")
+                run {
+                    characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    characteristic.value = data
+                    gatt.writeCharacteristic(characteristic)
+                }
+            }
+        } catch (e: SecurityException) {
+            false
+        }
+        // The write never left the phone, so no callback will answer.
+        if (!started) finishWrite("write_failed" to "Could not start the write")
     }
 
     /** Stops everything. Call when the Flutter engine goes away. */
@@ -197,5 +350,14 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         disconnectFromGATTServer()
         gattThread.quitSafely()
         scope.cancel()
+    }
+
+    /** Find GATT server characteristics after creating a connection */
+    private fun findGATTServerCharacteristics(
+        gatt: BluetoothGatt,
+        serviceUuid: UUID,
+        characteristicUuid: UUID
+    ): BluetoothGattCharacteristic? {
+        return gatt.getService(serviceUuid)?.getCharacteristic(characteristicUuid)
     }
 }

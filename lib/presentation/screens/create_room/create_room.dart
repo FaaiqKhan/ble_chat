@@ -141,6 +141,7 @@ class _CreateRoomState extends State<CreateRoom> {
                           controller: controller,
                           maxLength: maxNameLength,
                           style: tt.titleMedium,
+                          textCapitalization: TextCapitalization.sentences,
                           decoration: InputDecoration(
                             hintText: "e.g. GameNight",
                             counterText: "",

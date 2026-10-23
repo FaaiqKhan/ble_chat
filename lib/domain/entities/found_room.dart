@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 /// tells them apart.
 class FoundRoom extends Equatable {
   const FoundRoom({
+    required this.id,
     required this.name,
     required this.code,
     required this.address,
@@ -13,6 +14,10 @@ class FoundRoom extends Equatable {
     required this.maxPeople,
     this.isAvailable = true,
   });
+
+  /// A unique identifier for the user.
+  /// Auto generated on the creation of object.
+  final String id;
 
   final String name;
   final String code;
@@ -38,6 +43,7 @@ class FoundRoom extends Equatable {
       isAvailable && !isFull && bluetoothSignalOf(rssi) != BluetoothSignal.poor;
 
   FoundRoom copyWith({int? rssi, int? people, bool? isAvailable}) => FoundRoom(
+    id: id,
     name: name,
     code: code,
     address: address,

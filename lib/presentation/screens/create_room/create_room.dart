@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
@@ -15,6 +13,7 @@ import 'package:ble_chat/presentation/screens/host/host_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
+import 'package:ble_chat/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -35,11 +34,7 @@ class _CreateRoomState extends State<CreateRoom> {
   void initState() {
     super.initState();
     controller = TextEditingController()..addListener(() => setState(() {}));
-    final rnd = Random.secure();
-    code = List.generate(
-      4,
-      (_) => codeChars[rnd.nextInt(codeChars.length)],
-    ).join();
+    code = generateCode();
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:ble_chat/domain/entities/scanner_event.dart';
 import 'package:ble_chat/domain/repository/scan_session_repository.dart';
+import 'package:ble_chat/utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
@@ -164,6 +165,7 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
       return [
         ...state.rooms,
         FoundRoom(
+          id: generateCode(),
           name: event.roomName,
           code: event.roomCode,
           address: event.address,

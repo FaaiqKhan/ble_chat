@@ -14,7 +14,6 @@ class RoomCodeEntry extends StatefulWidget {
     super.key,
     required this.onVerify,
     this.focusNode,
-    this.isVerifying = false,
     this.hasError = false,
     this.onChanged,
   });
@@ -27,9 +26,6 @@ class RoomCodeEntry extends StatefulWidget {
   /// Lets the parent focus the field, e.g. when the panel opens.
   final FocusNode? focusNode;
 
-  /// The code is being checked: field locked, button shows "Checking…".
-  final bool isVerifying;
-
   /// The last code was wrong: boxes turn red, and clear.
   final bool hasError;
 
@@ -41,8 +37,8 @@ class RoomCodeEntry extends StatefulWidget {
 }
 
 class _RoomCodeEntryState extends State<RoomCodeEntry> {
-  late final TextEditingController _code;
   FocusNode? _ownFocus;
+  late final TextEditingController _code;
 
   FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
 
@@ -50,16 +46,6 @@ class _RoomCodeEntryState extends State<RoomCodeEntry> {
   void initState() {
     super.initState();
     _code = TextEditingController()..addListener(() => setState(() {}));
-  }
-
-  @override
-  void didUpdateWidget(RoomCodeEntry old) {
-    super.didUpdateWidget(old);
-    // A wrong code: start over, ready to type again.
-    if (!old.hasError && widget.hasError) {
-      _code.clear();
-      _focus.requestFocus();
-    }
   }
 
   @override
@@ -75,22 +61,13 @@ class _RoomCodeEntryState extends State<RoomCodeEntry> {
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final ready =
-        _code.text.length == RoomCodeEntry.codeLength && !widget.isVerifying;
-
-    final message = widget.isVerifying
-        ? "Checking code…"
-        : widget.hasError
-        ? "That code didn’t match. Check it with the host and try again."
-        : "Ask the host for the 6-digit code.";
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "ROOM CODE · ${RoomCodeEntry.codeLength} DIGITS",
-          style: tt.labelSmall?.copyWith(letterSpacing: 0.88),
+          style: tt.labelMedium,
         ),
         const SpacerBox(
           type: SpacerBoxType.vertical,
@@ -99,17 +76,16 @@ class _RoomCodeEntryState extends State<RoomCodeEntry> {
         CodeBoxes(
           controller: _code,
           focusNode: _focus,
-          length: RoomCodeEntry.codeLength,
-          enabled: !widget.isVerifying,
           hasError: widget.hasError,
           onChanged: widget.onChanged,
+          length: RoomCodeEntry.codeLength,
         ),
         const SpacerBox(
           type: SpacerBoxType.vertical,
           size: SpacerBoxSize.medium,
         ),
         Text(
-          message,
+          "Ask the host for the 6-digit code.",
           style: tt.bodySmall?.copyWith(
             color: widget.hasError ? palette.badFg : cs.onSurfaceVariant,
             fontWeight: widget.hasError ? FontWeight.w700 : FontWeight.w400,
@@ -122,38 +98,12 @@ class _RoomCodeEntryState extends State<RoomCodeEntry> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: ready && widget.onVerify != null
+            onPressed:
+                _code.text.length == RoomCodeEntry.codeLength &&
+                    widget.onVerify != null
                 ? () => widget.onVerify!(_code.text)
                 : null,
-            style: ElevatedButton.styleFrom(
-              disabledBackgroundColor: widget.isVerifying
-                  ? palette.ctaSoft
-                  : cs.outline,
-              disabledForegroundColor: widget.isVerifying
-                  ? palette.ctaFg
-                  : cs.onSurfaceVariant,
-            ),
-            child: widget.isVerifying
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: palette.ctaFg,
-                          backgroundColor: palette.primaryBorder,
-                        ),
-                      ),
-                      const SpacerBox(
-                        type: SpacerBoxType.horizontal,
-                        size: SpacerBoxSize.large,
-                      ),
-                      const Text("Checking…"),
-                    ],
-                  )
-                : const Text("Verify & Join"),
+            child: const Text("Verify & Join"),
           ),
         ),
       ],

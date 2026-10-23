@@ -272,7 +272,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                 disconnectFromGATTServer()
             }
 
-            "write" -> writeToCharacteristic(call.arguments, result)
+            "send" -> writeToCharacteristic(call.arguments, result)
 
             else -> result.notImplemented()
         }

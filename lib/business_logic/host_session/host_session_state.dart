@@ -20,6 +20,7 @@ class HostSessionState extends Equatable {
     this.participants = const [],
     this.status = HostSessionStatus.idle,
     this.progress = const [],
+    this.authCode = "",
   });
 
   final String roomName;
@@ -27,6 +28,7 @@ class HostSessionState extends Equatable {
   final int maxPeople;
   final List<HostParticipant> participants;
   final HostSessionStatus status;
+  final String authCode;
 
   /// The startup steps and where each one is. Empty until hosting starts.
   final List<HostSessionProgress> progress;
@@ -35,6 +37,7 @@ class HostSessionState extends Equatable {
     List<HostParticipant>? participants,
     HostSessionStatus? status,
     List<HostSessionProgress>? progress,
+    String? authCode,
   }) => HostSessionState(
     roomName: roomName,
     code: code,
@@ -42,6 +45,7 @@ class HostSessionState extends Equatable {
     participants: participants ?? this.participants,
     status: status ?? this.status,
     progress: progress ?? this.progress,
+    authCode: authCode ?? this.authCode,
   );
 
   void addParticipant(HostParticipant participant) =>

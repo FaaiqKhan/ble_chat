@@ -68,14 +68,17 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private val mainCoroutineScope = MainScope()
     private var autoStopJob: Job? = null
 
+    private var authCode: String? = null
+
     private fun emitConnectionError(type: String, message: String) {
         mainCoroutineScope.launch { eventSink?.error(type, message, null) }
     }
 
-    private fun emitConnectionSuccess(type: String, state: String) {
+    private fun emitConnectionSuccess(type: String, state: String, authCode: String? = null) {
         val event = mapOf<String, Any?>(
             "type" to type,
             "state" to state,
+            "authCode" to authCode,
         )
         mainCoroutineScope.launch { eventSink?.success(event) }
     }
@@ -146,7 +149,14 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                     stop(false)
                 }
             }
-            emitConnectionSuccess("progress", "advertisingStarted")
+            /**
+             * The 6-digit code guests need to join, sent to the host so it can share it.
+             * Made once per room: onStartSuccess also runs when advertising restarts to
+             * refresh the people count, and a new code then would no longer match the one
+             * the host was shown.
+             */
+            val code = authCode ?: Utils.generateAuthCode().also { authCode = it }
+            emitConnectionSuccess("progress", "advertisingStarted", code)
         }
 
         override fun onStartFailure(errorCode: Int) {
@@ -241,6 +251,9 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         advertiser = null
         advertising = false
         if (closeServer) {
+            // The code belongs to the room, not to advertising: it stays valid when
+            // advertising merely times out, and goes when the room closes.
+            authCode = null
             room = null
             closeGattServer()
         }

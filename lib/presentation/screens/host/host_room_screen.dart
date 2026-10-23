@@ -110,6 +110,7 @@ class HostRoomScreen extends StatelessWidget {
                           HostRoomLabelCard(
                             name: hostSessionBloc.state.roomName,
                             code: hostSessionBloc.state.code,
+                            authCode: hostSessionBloc.state.authCode,
                           ),
                           const SpacerBox(
                             type: SpacerBoxType.vertical,
@@ -124,7 +125,6 @@ class HostRoomScreen extends StatelessWidget {
                             size: SpacerBoxSize.medium,
                           ),
                           switch (hostSessionBloc.state.status) {
-                            // TODO: Handle this case.
                             HostSessionStatus.idle => const SizedBox.shrink(),
                             HostSessionStatus.starting =>
                               const HostRoomSettingUp(),
@@ -187,8 +187,7 @@ class HostRoomScreen extends StatelessWidget {
                                 },
                                 child: const ClosingRoomBanner(),
                               ),
-                            HostSessionStatus.closed => const SizedBox.shrink(),
-                            // TODO: Handle this case.
+                            HostSessionStatus.closed ||
                             HostSessionStatus.failed => const SizedBox.shrink(),
                           },
                         ],

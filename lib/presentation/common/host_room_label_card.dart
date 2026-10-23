@@ -1,14 +1,21 @@
 import 'package:ble_chat/presentation/common/spacer_box.dart';
+import 'package:ble_chat/presentation/screens/scan/widgets/code_boxes.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class HostRoomLabelCard extends StatelessWidget {
-  const HostRoomLabelCard({super.key, required this.name, required this.code});
+  const HostRoomLabelCard({
+    super.key,
+    required this.name,
+    required this.code,
+    this.authCode,
+  });
 
   final String name;
   final String code;
+  final String? authCode;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +68,13 @@ class HostRoomLabelCard extends StatelessWidget {
               ),
             ],
           ),
+          if (authCode != null) ...[
+            const SpacerBox(
+              type: SpacerBoxType.vertical,
+              size: SpacerBoxSize.small,
+            ),
+            AuthCodeBoxes(code: authCode!),
+          ],
         ],
       ),
     );

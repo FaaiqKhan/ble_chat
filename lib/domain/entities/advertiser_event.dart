@@ -17,7 +17,10 @@ sealed class AdvertiserEvent {
     };
     return step == null
         ? const UnknownAdvertiserEvent()
-        : HostSessionProgressEvent(step: step);
+        : HostSessionProgressEvent(
+            step: step,
+            authCode: map["authCode"] as String?,
+          );
   }
 
   /// Parses an error sent with `EventSink.error`; [code] says which step.
@@ -36,9 +39,12 @@ sealed class AdvertiserEvent {
 
 /// [step] has finished.
 class HostSessionProgressEvent extends AdvertiserEvent {
-  const HostSessionProgressEvent({required this.step});
+  const HostSessionProgressEvent({required this.step, this.authCode});
 
   final HostSessionProgressStep step;
+
+  /// The 6-digit join code; only sent with the step that opens the room.
+  final String? authCode;
 }
 
 /// [step] failed, so the room can't start.

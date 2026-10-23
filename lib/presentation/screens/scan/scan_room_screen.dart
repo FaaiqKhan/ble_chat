@@ -96,6 +96,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           maxLength: _maxQueryLength,
                           style: tt.titleMedium,
                           textInputAction: TextInputAction.search,
+                          textCapitalization: TextCapitalization.sentences,
                           onSubmitted: (_) {
                             if (canSearch) {
                               scanSessionBloc.add(ScanRoomEvent(_query));

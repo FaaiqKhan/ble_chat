@@ -172,6 +172,7 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
           rssi: rssi,
           people: event.people,
           maxPeople: event.maxPeople,
+          hostName: "Faiq",
         ),
       ];
     }

@@ -12,6 +12,7 @@ class FoundRoom extends Equatable {
     required this.rssi,
     required this.people,
     required this.maxPeople,
+    required this.hostName,
     this.isAvailable = true,
   });
 
@@ -37,6 +38,11 @@ class FoundRoom extends Equatable {
   /// closed the room.
   final bool isAvailable;
 
+  /// This will be used to show when user scanned the room and trying to join
+  /// it's value will be set from the native while creating room instance
+  /// this value cannot be changed once the instance is created
+  final String hostName;
+
   /// Whether the room can be joined: still around, a spot is free, and the
   /// signal isn't so weak that the connection would fail.
   bool get isJoinable =>
@@ -51,6 +57,7 @@ class FoundRoom extends Equatable {
     people: people ?? this.people,
     maxPeople: maxPeople,
     isAvailable: isAvailable ?? this.isAvailable,
+    hostName: hostName,
   );
 
   @override

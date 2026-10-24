@@ -1,4 +1,5 @@
 import 'package:ble_chat/domain/entities/found_room.dart';
+import 'package:ble_chat/presentation/common/room_name_card.dart';
 import 'package:ble_chat/presentation/common/signal_bars.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_code_entry.dart';
@@ -124,7 +125,7 @@ class _FoundRoomCardState extends State<FoundRoomCard> {
     final palette = context.palette;
 
     return InkWell(
-      onTap: widget.room.isJoinable ? _toggle : null,
+      onTap: widget.room.isJoinable ? _toggle : _toggle,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -133,39 +134,7 @@ class _FoundRoomCardState extends State<FoundRoomCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.primarySoft,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: palette.primaryBorder),
-                  ),
-                  child: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    children: [
-                      Text(widget.room.name, style: tt.headlineSmall),
-                      Text(
-                        "·",
-                        style: tt.titleLarge?.copyWith(
-                          fontFamily: AppFonts.mono,
-                          color: palette.primaryFg,
-                        ),
-                      ),
-                      Text(
-                        widget.room.code,
-                        style: tt.titleLarge?.copyWith(
-                          fontFamily: AppFonts.mono,
-                          letterSpacing: 1.3,
-                          color: palette.primaryFg,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                RoomNameCard(name: widget.room.name, code: widget.room.code),
                 const SpacerBox(
                   type: SpacerBoxType.horizontal,
                   size: SpacerBoxSize.medium,

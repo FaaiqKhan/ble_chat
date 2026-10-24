@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
@@ -199,7 +200,7 @@ class HostRoomScreen extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        OutlinedButton(
+                        BleChatOutlinedButton(
                           onPressed: closeFailed
                               ? () => hostSessionBloc.add(
                                   DismissCloseErrorEvent(),
@@ -207,17 +208,9 @@ class HostRoomScreen extends StatelessWidget {
                               : failed
                               ? Navigator.of(context).pop
                               : () => handleRoomClose(context, hostSessionBloc),
-                          style: failed || closeFailed
-                              ? OutlinedButton.styleFrom(
-                                  foregroundColor: context.palette.ctaFg,
-                                )
-                              : OutlinedButton.styleFrom(
-                                  foregroundColor: context.palette.error,
-                                  side: BorderSide(
-                                    color: context.palette.error,
-                                    width: 1.5,
-                                  ),
-                                ),
+                          tone: failed || closeFailed
+                              ? BleChatButtonTone.primary
+                              : BleChatButtonTone.danger,
                           child: Text(
                             closeFailed
                                 ? "Back"

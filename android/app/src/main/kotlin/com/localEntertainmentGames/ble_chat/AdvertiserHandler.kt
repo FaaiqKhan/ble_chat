@@ -16,11 +16,13 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
@@ -61,6 +63,11 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
     private var advertising = false
     private var advertiser: BluetoothLeAdvertiser? = null
+
+    // When the room stops being visible (elapsedRealtime). Set when advertising first
+    // succeeds and kept across the restarts that refresh the people count.
+    @Volatile
+    private var advertiseEndsAt = 0L
 
     // The room being advertised, kept so the people count can be refreshed later.
     private var room: Utils.RoomAd? = null
@@ -137,6 +144,16 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         eventSink = null
     }
 
+    /**
+     * Stops everything: advertising, the GATT server and its connected guests, and the
+     * timers. Call when the Flutter engine goes away; the handler can't be used after.
+     */
+    fun release() {
+        eventSink = null
+        stop(true)
+        mainCoroutineScope.cancel()
+    }
+
     // stopAdvertising must receive the same callback instance that started the advertisement.
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
@@ -144,6 +161,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             // A refresh (new people count) restarts advertising but must not extend the
             // time the room stays visible, so the timer only starts once.
             if (autoStopJob == null) {
+                advertiseEndsAt = SystemClock.elapsedRealtime() + ADVERTISE_DURATION_MS
                 autoStopJob = mainCoroutineScope.launch {
                     delay(ADVERTISE_DURATION_MS.milliseconds)
                     stop(false)
@@ -196,17 +214,22 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         room = details
         val advertiseData = buildAdvertiseData(details) ?: return
 
-        val settings = advertiseSettings()
+        val settings = advertiseSettings(ADVERTISE_DURATION_MS)
 
         this.advertiser = advertiser
         advertiser.startAdvertising(settings, advertiseData, advertiseCallback)
     }
 
-    private fun advertiseSettings() = AdvertiseSettings.Builder()
+    /**
+     * [timeoutMs] is the system's own stop time (it allows 0 to 180000). The coroutine
+     * timer in this class does the same job and reports it, but it can't run if Android
+     * freezes the app in the background; the Bluetooth controller still stops on time.
+     */
+    private fun advertiseSettings(timeoutMs: Long) = AdvertiseSettings.Builder()
         .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
         .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
         .setConnectable(true)
-        .setTimeout(0)
+        .setTimeout(timeoutMs.toInt())
         .build()
 
     /** Null (after reporting the error) if the room can't be encoded into the packet. */
@@ -239,9 +262,14 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         val advertiser = advertiser
         if (!advertising || advertiser == null) return
 
+        // Restarting must not give the room a fresh timeout: only what is left of the
+        // original one. Nothing left means it is about to stop anyway.
+        val remaining = advertiseEndsAt - SystemClock.elapsedRealtime()
+        if (remaining <= 0) return
+
         val data = buildAdvertiseData(updated) ?: return
         advertiser.stopAdvertising(advertiseCallback)
-        advertiser.startAdvertising(advertiseSettings(), data, advertiseCallback)
+        advertiser.startAdvertising(advertiseSettings(remaining), data, advertiseCallback)
     }
 
     fun stop(closeServer: Boolean) {

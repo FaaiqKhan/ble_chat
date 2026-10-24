@@ -14,6 +14,7 @@ import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
@@ -194,5 +195,12 @@ class ScannerHandler(context: Context) : MethodChannel.MethodCallHandler,
         // Dart stopped listening (canceled or left the screen): don't scan for nobody.
         eventSink = null
         stopScanning()
+    }
+
+    /** Stops the scan and its timer. Call when the Flutter engine goes away. */
+    fun release() {
+        eventSink = null
+        stopScanning()
+        mainCoroutineScope.cancel()
     }
 }

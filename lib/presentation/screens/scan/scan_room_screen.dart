@@ -165,7 +165,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           query: _query,
                           rooms: state.rooms,
                           isScanning: state.isScanning,
-                          onVerify: (foundRoom, code) {},
+                          onVerify: (selectedRoom, code) {},
                         ),
                         ScanSessionStatus.notFound => Align(
                           alignment: Alignment.topCenter,

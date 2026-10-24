@@ -1,4 +1,4 @@
-import 'package:ble_chat/domain/entities/host_session_progress.dart';
+import 'package:ble_chat/common/step_status.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,8 @@
 import 'package:ble_chat/domain/entities/found_room.dart';
-import 'package:ble_chat/domain/repository/chat_session_repository.dart';
+import 'package:ble_chat/domain/repository/connect_session_repository.dart';
 import 'package:flutter/services.dart';
 
-class ChatSessionRepositoryImpl implements ChatSessionRepository {
+class ConnectSessionRepositoryImpl implements ConnectSessionRepository {
   // static const _eventChannel = EventChannel("connect/events");
   static const _methodChannel = MethodChannel("connect/methods");
 

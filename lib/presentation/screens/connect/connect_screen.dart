@@ -1,5 +1,5 @@
-import 'package:ble_chat/business_logic/chat_session/chat_session_bloc.dart';
-import 'package:ble_chat/domain/entities/host_session_progress.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_bloc.dart';
+import 'package:ble_chat/common/step_status.dart';
 import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/presentation/common/room_name_card.dart';
 import 'package:ble_chat/presentation/common/screen_header.dart';
@@ -22,7 +22,7 @@ class ConnectScreen extends StatelessWidget {
 
     final radius = BorderRadius.circular(AppRadius.lg);
 
-    final chatSessionBloc = context.read<ChatSessionBloc>();
+    final chatSessionBloc = context.read<ConnectSessionBloc>();
     final room = chatSessionBloc.state.room;
 
     return Scaffold(

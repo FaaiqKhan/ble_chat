@@ -1,4 +1,4 @@
-enum StepStatus { pending, current, done, failed }
+import 'package:ble_chat/common/step_status.dart';
 
 enum HostSessionProgressStep { bluetooth, service, advertising }
 

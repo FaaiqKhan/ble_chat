@@ -1,6 +1,6 @@
 import 'package:ble_chat/domain/entities/found_room.dart';
 
-abstract class ChatSessionRepository {
+abstract class ConnectSessionRepository {
   Future<void> connect(FoundRoom room, String authCode);
 
   Future<void> updateConnectStatus(FoundRoom room);

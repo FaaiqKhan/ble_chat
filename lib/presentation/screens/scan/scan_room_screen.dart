@@ -1,7 +1,7 @@
-import 'package:ble_chat/business_logic/chat_session/chat_session_bloc.dart';
-import 'package:ble_chat/business_logic/chat_session/chat_session_event.dart';
-import 'package:ble_chat/business_logic/chat_session/chat_session_state.dart';
-import 'package:ble_chat/data/repository_impl/chat_session_repository_impl.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_bloc.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_event.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_state.dart';
+import 'package:ble_chat/data/repository_impl/connect_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
@@ -164,17 +164,18 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                             // Add bloc
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute(
-                                builder: (_) => BlocProvider<ChatSessionBloc>(
-                                  create: (_) => ChatSessionBloc(
-                                    ChatSessionState(
-                                      room: selectedRoom,
-                                      authCode: code,
+                                builder: (_) =>
+                                    BlocProvider<ConnectSessionBloc>(
+                                      create: (_) => ConnectSessionBloc(
+                                        ConnectSessionState(
+                                          room: selectedRoom,
+                                          authCode: code,
+                                        ),
+                                        chatSessionRepository:
+                                            ConnectSessionRepositoryImpl(),
+                                      )..add(ConnectChatSessionEvent()),
+                                      child: ConnectScreen(),
                                     ),
-                                    chatSessionRepository:
-                                        ChatSessionRepositoryImpl(),
-                                  )..add(ConnectChatSessionEvent()),
-                                  child: ConnectScreen(),
-                                ),
                               ),
                             );
                           },

@@ -3,7 +3,7 @@ import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_event.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
-import 'package:ble_chat/presentation/common/chat_icon_button.dart';
+import 'package:ble_chat/presentation/common/screen_header.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_not_found_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/found_room_list.dart';
@@ -57,13 +57,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
         false;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: ChatIconButton(
-          iconData: Icons.arrow_back_ios_new_rounded,
-          onPressed: Navigator.of(context).pop,
-        ),
-        title: Text("Join a Chat", style: tt.headlineSmall),
-      ),
+      appBar: const ScreenHeader(name: "Join a Chat"),
       body: SafeArea(
         child: Padding(
           padding: AppPadding.portraitScreen,

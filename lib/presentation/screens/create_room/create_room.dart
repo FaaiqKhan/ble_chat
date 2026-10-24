@@ -5,7 +5,7 @@ import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
 import 'package:ble_chat/common/constants.dart';
 import 'package:ble_chat/data/repository_impl/host_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
-import 'package:ble_chat/presentation/common/chat_icon_button.dart';
+import 'package:ble_chat/presentation/common/screen_header.dart';
 import 'package:ble_chat/presentation/common/max_people_option.dart';
 import 'package:ble_chat/presentation/common/room_label_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
@@ -106,13 +106,7 @@ class _CreateRoomState extends State<CreateRoom> {
     final sectionLabel = tt.labelSmall?.copyWith(letterSpacing: 0.88);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: ChatIconButton(
-          iconData: Icons.arrow_back_ios_new_rounded,
-          onPressed: Navigator.of(context).pop,
-        ),
-        title: Text("Room Setup", style: tt.headlineSmall),
-      ),
+      appBar: const ScreenHeader(name: "Room Setup"),
       body: SafeArea(
         child: Padding(
           padding: AppPadding.portraitScreen,

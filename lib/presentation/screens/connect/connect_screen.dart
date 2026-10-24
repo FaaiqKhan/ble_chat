@@ -1,4 +1,4 @@
-import 'package:ble_chat/domain/entities/found_room.dart';
+import 'package:ble_chat/business_logic/chat_session/chat_session_bloc.dart';
 import 'package:ble_chat/domain/entities/host_session_progress.dart';
 import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/presentation/common/room_name_card.dart';
@@ -9,16 +9,10 @@ import 'package:ble_chat/presentation/common/step_row.dart';
 import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ConnectScreen extends StatelessWidget {
-  const ConnectScreen({
-    super.key,
-    required this._room,
-    required this._authCode,
-  });
-
-  final FoundRoom _room;
-  final String _authCode;
+  const ConnectScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +21,9 @@ class ConnectScreen extends StatelessWidget {
     final palette = context.palette;
 
     final radius = BorderRadius.circular(AppRadius.lg);
+
+    final chatSessionBloc = context.read<ChatSessionBloc>();
+    final room = chatSessionBloc.state.room;
 
     return Scaffold(
       appBar: ScreenHeader(name: "Joining..."),
@@ -67,20 +64,20 @@ class ConnectScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      SignalBars(rssi: _room.rssi),
+                      SignalBars(rssi: room.rssi),
                     ],
                   ),
                   const SpacerBox(
                     type: SpacerBoxType.vertical,
                     size: SpacerBoxSize.medium,
                   ),
-                  RoomNameCard(name: _room.name, code: _room.code),
+                  RoomNameCard(name: room.name, code: room.code),
                   const SpacerBox(
                     type: SpacerBoxType.vertical,
                     size: SpacerBoxSize.small,
                   ),
                   Text(
-                    "Hosted by ${_room.hostName}",
+                    "Hosted by ${room.hostName}",
                     style: tt.bodyMedium?.copyWith(
                       fontFamily: AppFonts.mono,
                       fontWeight: FontWeight.w700,
@@ -94,7 +91,7 @@ class ConnectScreen extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        "${_room.people} / ${_room.maxPeople}",
+                        "${room.people} / ${room.maxPeople}",
                         style: tt.bodyLarge,
                       ),
                       const SpacerBox(

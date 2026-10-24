@@ -1,5 +1,7 @@
 import 'package:ble_chat/business_logic/connect_session/connect_session_bloc.dart';
-import 'package:ble_chat/common/step_status.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_event.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_state.dart';
+import 'package:ble_chat/domain/entities/connect_session_progress.dart';
 import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/presentation/common/room_name_card.dart';
 import 'package:ble_chat/presentation/common/screen_header.dart';
@@ -22,8 +24,8 @@ class ConnectScreen extends StatelessWidget {
 
     final radius = BorderRadius.circular(AppRadius.lg);
 
-    final chatSessionBloc = context.read<ConnectSessionBloc>();
-    final room = chatSessionBloc.state.room;
+    final connectSessionBloc = context.read<ConnectSessionBloc>();
+    final room = connectSessionBloc.state.room;
 
     return Scaffold(
       appBar: ScreenHeader(name: "Joining..."),
@@ -110,25 +112,24 @@ class ConnectScreen extends StatelessWidget {
                       borderRadius: radius,
                       border: BoxBorder.all(color: cs.outlineVariant),
                     ),
-                    child: Column(
-                      children: [
-                        StepRow(
-                          label: "Connecting to host",
-                          state: StepStatus.done,
-                          palette: palette,
+                    child:
+                        BlocSelector<
+                          ConnectSessionBloc,
+                          ConnectSessionState,
+                          List<ConnectSessionProgress>
+                        >(
+                          selector: (state) => state.progress,
+                          builder: (context, progress) => Column(
+                            children: [
+                              for (final step in progress)
+                                StepRow(
+                                  label: step.label,
+                                  state: step.state,
+                                  palette: palette,
+                                ),
+                            ],
+                          ),
                         ),
-                        StepRow(
-                          label: "Authenticating",
-                          state: StepStatus.current,
-                          palette: palette,
-                        ),
-                        StepRow(
-                          label: "Discovering room service",
-                          state: StepStatus.pending,
-                          palette: palette,
-                        ),
-                      ],
-                    ),
                   ),
                   const SpacerBox(
                     type: SpacerBoxType.vertical,
@@ -137,10 +138,18 @@ class ConnectScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: BleChatOutlinedButton(
-                      onPressed: () {
-                        // Calls the bloc event to cancel the connection request
-                      },
-                      child: Text("Cancel"),
+                      onPressed: () =>
+                          connectSessionBloc.state.status ==
+                              ConnectSessionStatus.failed
+                          ? Navigator.of(context).pop()
+                          : connectSessionBloc.add(
+                              DisconnectChatSessionEvent(),
+                            ),
+                      child:
+                          connectSessionBloc.state.status ==
+                              ConnectSessionStatus.failed
+                          ? Text("Back")
+                          : Text("Cancel"),
                     ),
                   ),
                 ],

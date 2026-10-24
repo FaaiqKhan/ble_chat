@@ -1,7 +1,5 @@
 import 'package:ble_chat/common/step_status.dart';
 
-enum ConnectSessionStatus { connecting, connected, failed }
-
 enum ConnectSessionProgressStep { connect, authenticate, discover, join }
 
 class ConnectSessionProgress {

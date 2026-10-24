@@ -2,31 +2,45 @@ import 'package:ble_chat/domain/entities/connect_session_progress.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:equatable/equatable.dart';
 
+enum ConnectSessionStatus {
+  connecting,
+  connected,
+  failed,
+  disconnecting,
+  disconnected,
+}
+
 class ConnectSessionState extends Equatable {
   const ConnectSessionState({
     required this.room,
     required this.authCode,
-    this.connectionState = ConnectSessionStatus.connecting,
-    this.connectionStep = ConnectSessionProgressStep.connect,
+    this.status = ConnectSessionStatus.connecting,
+    this.step = ConnectSessionProgressStep.connect,
+    this.progress = const [],
   });
 
   final FoundRoom room;
   final String authCode;
-  final ConnectSessionStatus connectionState;
-  final ConnectSessionProgressStep connectionStep;
+  final ConnectSessionStatus status;
+  final ConnectSessionProgressStep step;
+
+  /// The startup steps and where each one is. Empty until connecting starts.
+  final List<ConnectSessionProgress> progress;
 
   ConnectSessionState copyWith({
-    ConnectSessionStatus? connectionState,
-    ConnectSessionProgressStep? connectionStep,
+    ConnectSessionStatus? status,
+    ConnectSessionProgressStep? step,
+    List<ConnectSessionProgress>? progress,
   }) {
     return ConnectSessionState(
       room: room,
       authCode: authCode,
-      connectionState: connectionState ?? this.connectionState,
-      connectionStep: connectionStep ?? this.connectionStep,
+      status: status ?? this.status,
+      step: step ?? this.step,
+      progress: progress ?? this.progress,
     );
   }
 
   @override
-  List<Object?> get props => [connectionState, connectionStep];
+  List<Object?> get props => [status, step, progress];
 }

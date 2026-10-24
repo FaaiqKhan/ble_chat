@@ -171,7 +171,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                                           room: selectedRoom,
                                           authCode: code,
                                         ),
-                                        chatSessionRepository:
+                                        connectSessionRepository:
                                             ConnectSessionRepositoryImpl(),
                                       )..add(ConnectChatSessionEvent()),
                                       child: ConnectScreen(),

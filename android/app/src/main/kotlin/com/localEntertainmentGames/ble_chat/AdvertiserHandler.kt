@@ -340,7 +340,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             if (device.address !in authenticated) {
                 respond(
                     device, requestId, responseNeeded,
-                    BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+                    BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, value
                 )
                 return
             }
@@ -406,7 +406,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             if (device.address !in authenticated) {
                 respond(
                     device, requestId, responseNeeded,
-                    BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+                    BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, value
                 )
                 return
             }
@@ -472,7 +472,8 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
     /**
      * A guest wrote the join code. A right code lets it chat; a wrong one is answered with
-     * GATT_INSUFFICIENT_AUTHENTICATION, which the guest reports as "wrong code". After
+     * GATT_INSUFFICIENT_AUTHORIZATION, which the guest reports as "wrong code". It must not
+     * be GATT_INSUFFICIENT_AUTHENTICATION: that makes the guest's phone start pairing. After
      * MAX_AUTH_ATTEMPTS wrong codes the connection is cut.
      */
     private fun handleAuthWrite(
@@ -498,7 +499,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         val attempts = failedAttempts.merge(address, 1, Int::plus) ?: 1
         respond(
             device, requestId, responseNeeded,
-            BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+            BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION, offset, value
         )
         if (attempts >= MAX_AUTH_ATTEMPTS) gattServer?.cancelConnection(device)
     }

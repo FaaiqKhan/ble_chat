@@ -300,11 +300,12 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
 
     /**
      * The host answered the join code. Accepted: turn on notifications (the answer comes
-     * in onDescriptorWrite). Refused with INSUFFICIENT_AUTHENTICATION: the code was wrong.
+     * in onDescriptorWrite). Refused with INSUFFICIENT_AUTHORIZATION: the code was wrong.
+     * (Not INSUFFICIENT_AUTHENTICATION: that one tells Android to start pairing.)
      */
     private fun onAuthResult(gatt: BluetoothGatt?, status: Int) {
         if (status != BluetoothGatt.GATT_SUCCESS) {
-            if (status == BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION) {
+            if (status == BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION) {
                 fail("wrong_code", "That code didn't match")
             } else {
                 fail("auth_failed", "The host could not check the code (status $status)")

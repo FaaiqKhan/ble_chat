@@ -1,6 +1,9 @@
 import 'package:ble_chat/common/step_status.dart';
 
-enum ConnectSessionProgressStep { connect, authenticate, discover, join }
+/// In the order they happen: the room's code characteristic can only be found by
+/// discovering services, so the code is sent after discovery, not before.
+/// Native reports each of these names when the step is done.
+enum ConnectSessionProgressStep { connect, discover, authenticate, join }
 
 class ConnectSessionProgress {
   const ConnectSessionProgress({required this.step, required this.state});
@@ -10,8 +13,8 @@ class ConnectSessionProgress {
 
   String get label => switch (step) {
     ConnectSessionProgressStep.connect => "Connecting to host",
-    ConnectSessionProgressStep.authenticate => "Authenticating",
     ConnectSessionProgressStep.discover => "Discovering room service",
+    ConnectSessionProgressStep.authenticate => "Authenticating",
     ConnectSessionProgressStep.join => "Joining room",
   };
 
@@ -34,7 +37,7 @@ class ConnectSessionProgress {
         step: s,
         state: s.index <= step.index
             ? StepStatus.done
-            : s.index == s.index + 1
+            : s.index == step.index + 1
             ? StepStatus.current
             : StepStatus.pending,
       ),

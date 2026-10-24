@@ -14,4 +14,6 @@ object Constants {
     const val ADVERTISEMENT_MARKER: Byte = 0x4C
 
     val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+    // Write-only: a guest writes the 6-digit join code here right after connecting.
+    val AUTH_CHARACTERISTIC_UUID: UUID = UUID.fromString("0000cafe-0000-1000-8000-00805f9b34fb")
 }

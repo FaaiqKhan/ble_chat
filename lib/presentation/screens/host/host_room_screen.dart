@@ -6,6 +6,7 @@ import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/dashed_border.dart';
+import 'package:ble_chat/presentation/common/failed_banner.dart';
 import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
@@ -133,12 +134,15 @@ class HostRoomScreen extends StatelessWidget {
                             HostSessionStatus.closeFailed => Column(
                               children: [
                                 if (closeFailed)
-                                  const _FailedBanner(
+                                  const FailedBanner(
                                     title: "Couldn’t close your room",
                                     message: "Please try again.",
                                   )
                                 else if (failed)
-                                  const _FailedBanner()
+                                  const FailedBanner(
+                                    title: "Couldn’t start your room",
+                                    message: "Nearby devices can’t see it yet.",
+                                  )
                                 else if (inStartup)
                                   const SizedBox.shrink()
                                 else if (hostSessionBloc.isFull)
@@ -633,46 +637,3 @@ class _MemberRow extends StatelessWidget {
 }
 
 enum _RowKind { host, guest, empty }
-
-class _FailedBanner extends StatelessWidget {
-  const _FailedBanner({
-    this.title = "Couldn’t start your room",
-    this.message = "Nearby devices can’t see it yet.",
-  });
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final palette = context.palette;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: palette.errorSoft,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: palette.error, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: palette.badFg, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                Text(message, style: tt.bodySmall),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

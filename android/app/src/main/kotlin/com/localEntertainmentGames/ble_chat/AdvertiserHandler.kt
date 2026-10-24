@@ -25,6 +25,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -43,6 +44,14 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         const val METHOD_CHANNEL = "bleAdvertiser/methods"
         const val ADVERTISE_DURATION_MS = 60_000L
         private const val DEFAULT_MTU = 23
+
+        // A connected guest has this long to send the right code, and this many tries.
+        private const val AUTH_TIMEOUT_MS = 10_000L
+        private const val MAX_AUTH_ATTEMPTS = 3
+
+        // Connections allowed on top of the authenticated guests, so a stranger can't
+        // fill every slot. Each lasts at most AUTH_TIMEOUT_MS.
+        private const val PENDING_SLOTS = 2
     }
 
     private var bluetoothManager = context.getSystemService(BluetoothManager::class.java)
@@ -74,8 +83,12 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
     private val mainCoroutineScope = MainScope()
     private var autoStopJob: Job? = null
-
     private var authCode: String? = null
+
+    // Addresses of the guests that sent the right code. Only these may chat or subscribe.
+    private val authenticated: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val failedAttempts = ConcurrentHashMap<String, Int>()
+    private val authTimeouts = ConcurrentHashMap<String, Job>()
 
     private fun emitConnectionError(type: String, message: String) {
         mainCoroutineScope.launch { eventSink?.error(type, message, null) }
@@ -167,14 +180,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                     stop(false)
                 }
             }
-            /**
-             * The 6-digit code guests need to join, sent to the host so it can share it.
-             * Made once per room: onStartSuccess also runs when advertising restarts to
-             * refresh the people count, and a new code then would no longer match the one
-             * the host was shown.
-             */
-            val code = authCode ?: Utils.generateAuthCode().also { authCode = it }
-            emitConnectionSuccess("progress", "advertisingStarted", code)
+            emitConnectionSuccess("progress", "advertisingStarted", authCode)
         }
 
         override fun onStartFailure(errorCode: Int) {
@@ -206,6 +212,10 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         openGattServer()
 
+        // The 6-digit code guests need to join. Made once per room (and shown to the host
+        // with the first progress event); it is never advertised.
+        if (authCode == null) authCode = Utils.generateAuthCode()
+
         // The room identity travels in the advertising packet itself as manufacturer data,
         // so a scanner can filter on it in hardware (a scan response can't be filtered
         // on). The service id is left out of the packet to make room; guests find the
@@ -214,7 +224,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         room = details
         val advertiseData = buildAdvertiseData(details) ?: return
 
-        val settings = advertiseSettings(ADVERTISE_DURATION_MS)
+        val settings = advertiseSettings(ADVERTISE_DURATION_MS, details.people < details.maxPeople)
 
         this.advertiser = advertiser
         advertiser.startAdvertising(settings, advertiseData, advertiseCallback)
@@ -225,10 +235,12 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
      * timer in this class does the same job and reports it, but it can't run if Android
      * freezes the app in the background; the Bluetooth controller still stops on time.
      */
-    private fun advertiseSettings(timeoutMs: Long) = AdvertiseSettings.Builder()
+    private fun advertiseSettings(timeoutMs: Long, connectable: Boolean) =
+        AdvertiseSettings.Builder()
         .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
         .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-        .setConnectable(true)
+        // A full room is still advertised (scanners show it as FULL) but can't be connected to.
+        .setConnectable(connectable)
         .setTimeout(timeoutMs.toInt())
         .build()
 
@@ -269,7 +281,11 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         val data = buildAdvertiseData(updated) ?: return
         advertiser.stopAdvertising(advertiseCallback)
-        advertiser.startAdvertising(advertiseSettings(remaining), data, advertiseCallback)
+        advertiser.startAdvertising(
+            advertiseSettings(remaining, updated.people < updated.maxPeople),
+            data,
+            advertiseCallback
+        )
     }
 
     fun stop(closeServer: Boolean) {
@@ -295,26 +311,13 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         override fun onConnectionStateChange(device: BluetoothDevice?, status: Int, newState: Int) {
             device ?: return
             when (newState) {
-                BluetoothProfile.STATE_CONNECTED -> connectedDevices.add(device)
-                BluetoothProfile.STATE_DISCONNECTED -> {
-                    connectedDevices.remove(device)
-                    deviceMtu.remove(device)
-                    // A guest that left no longer receives messages.
-                    subscribers.remove(device)
-                }
+                BluetoothProfile.STATE_CONNECTED -> onGuestConnected(device)
+                BluetoothProfile.STATE_DISCONNECTED -> forgetGuest(device)
             }
         }
 
         override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
             if (device != null) deviceMtu[device] = mtu
-        }
-
-        override fun onCharacteristicReadRequest(
-            device: BluetoothDevice?,
-            requestId: Int,
-            offset: Int,
-            characteristic: BluetoothGattCharacteristic?
-        ) {
         }
 
         override fun onCharacteristicWriteRequest(
@@ -327,18 +330,31 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             value: ByteArray?
         ) {
             if (device == null) return
+
+            if (characteristic?.uuid == Constants.AUTH_CHARACTERISTIC_UUID) {
+                handleAuthWrite(device, requestId, responseNeeded, offset, value)
+                return
+            }
+
+            // Everything below is only for guests that sent the right code.
+            if (device.address !in authenticated) {
+                respond(
+                    device, requestId, responseNeeded,
+                    BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+                )
+                return
+            }
+
             val message = Utils.decodeMessage(value)
             val isRoomWrite = characteristic?.uuid == Constants.CHARACTERISTIC_UUID
             // Without this answer the guest's write never completes and, after about 30
             // seconds, the connection is dropped.
-            if (responseNeeded) {
-                val status = if (isRoomWrite && message != null) {
-                    BluetoothGatt.GATT_SUCCESS
-                } else {
-                    BluetoothGatt.GATT_FAILURE
-                }
-                gattServer?.sendResponse(device, requestId, status, offset, value)
-            }
+            respond(
+                device, requestId, responseNeeded,
+                if (isRoomWrite && message != null) BluetoothGatt.GATT_SUCCESS
+                else BluetoothGatt.GATT_FAILURE,
+                offset, value
+            )
             if (!isRoomWrite || message == null || value == null) return
 
             // Guests don't talk to each other: the host passes the message on, unchanged,
@@ -360,7 +376,20 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             offset: Int,
             descriptor: BluetoothGattDescriptor?
         ) {
-
+            if (device == null) return
+            // Only the CCCD is read: whether this guest has notifications on.
+            if (descriptor?.uuid == Constants.CCCD_UUID) {
+                val value = if (device in subscribers) {
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                } else {
+                    BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+                }
+                gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, value)
+            } else {
+                gattServer?.sendResponse(
+                    device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null
+                )
+            }
         }
 
         override fun onDescriptorWriteRequest(
@@ -373,6 +402,14 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             value: ByteArray?
         ) {
             if (device == null) return
+            // Subscribing is how a guest receives messages, so it needs the code first.
+            if (device.address !in authenticated) {
+                respond(
+                    device, requestId, responseNeeded,
+                    BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+                )
+                return
+            }
             var status = BluetoothGatt.GATT_SUCCESS
             if (descriptor?.uuid == Constants.CCCD_UUID) {
                 // The guest switching notifications on or off for this characteristic.
@@ -388,10 +425,96 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             } else {
                 status = BluetoothGatt.GATT_FAILURE
             }
-            if (responseNeeded) {
-                gattServer?.sendResponse(device, requestId, status, offset, value)
-            }
+            respond(device, requestId, responseNeeded, status, offset, value)
         }
+    }
+
+    /** Answers a GATT request; guests wait for this (see the 30 second note above). */
+    private fun respond(
+        device: BluetoothDevice,
+        requestId: Int,
+        responseNeeded: Boolean,
+        status: Int,
+        offset: Int,
+        value: ByteArray?
+    ) {
+        if (responseNeeded) gattServer?.sendResponse(device, requestId, status, offset, value)
+    }
+
+    /**
+     * A new connection. Not trusted yet: it may only exist for a few seconds unless it
+     * sends the right code. Refused outright if the room is full or too many unproven
+     * connections are already open.
+     */
+    private fun onGuestConnected(device: BluetoothDevice) {
+        val guestSpots = (room?.maxPeople ?: 0) - 1
+        val pending = connectedDevices.count { it.address !in authenticated }
+        if (authenticated.size >= guestSpots || pending >= PENDING_SLOTS) {
+            gattServer?.cancelConnection(device)
+            return
+        }
+        connectedDevices.add(device)
+        authTimeouts[device.address] = mainCoroutineScope.launch {
+            delay(AUTH_TIMEOUT_MS.milliseconds)
+            if (device.address !in authenticated) gattServer?.cancelConnection(device)
+        }
+    }
+
+    /** A guest is gone (left, dropped, or was refused): forget everything about it. */
+    private fun forgetGuest(device: BluetoothDevice) {
+        connectedDevices.remove(device)
+        deviceMtu.remove(device)
+        subscribers.remove(device)
+        failedAttempts.remove(device.address)
+        authTimeouts.remove(device.address)?.cancel()
+        if (authenticated.remove(device.address)) onGuestsChanged("left", device)
+    }
+
+    /**
+     * A guest wrote the join code. A right code lets it chat; a wrong one is answered with
+     * GATT_INSUFFICIENT_AUTHENTICATION, which the guest reports as "wrong code". After
+     * MAX_AUTH_ATTEMPTS wrong codes the connection is cut.
+     */
+    private fun handleAuthWrite(
+        device: BluetoothDevice,
+        requestId: Int,
+        responseNeeded: Boolean,
+        offset: Int,
+        value: ByteArray?
+    ) {
+        val expected = authCode?.toByteArray(Charsets.UTF_8)
+        // isEqual takes the same time however many digits match.
+        val correct = expected != null && value != null && MessageDigest.isEqual(expected, value)
+        val address = device.address
+
+        if (correct) {
+            failedAttempts.remove(address)
+            authTimeouts.remove(address)?.cancel()
+            respond(device, requestId, responseNeeded, BluetoothGatt.GATT_SUCCESS, offset, value)
+            if (authenticated.add(address)) onGuestsChanged("joined", device)
+            return
+        }
+
+        val attempts = failedAttempts.merge(address, 1, Int::plus) ?: 1
+        respond(
+            device, requestId, responseNeeded,
+            BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION, offset, value
+        )
+        if (attempts >= MAX_AUTH_ATTEMPTS) gattServer?.cancelConnection(device)
+    }
+
+    /** The set of authenticated guests changed: refresh the advertised count, tell Dart. */
+    private fun onGuestsChanged(state: String, device: BluetoothDevice) {
+        val people = authenticated.size + 1
+        updatePeople(people)
+        emitEvent(
+            mapOf(
+                "type" to "peer",
+                "state" to state,
+                "address" to device.address,
+                "people" to people,
+            )
+        )
     }
 
     /**
@@ -462,11 +585,9 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         val characteristic = BluetoothGattCharacteristic(
             Constants.CHARACTERISTIC_UUID,
-            BluetoothGattCharacteristic.PROPERTY_READ or
-                    BluetoothGattCharacteristic.PROPERTY_WRITE or
+            BluetoothGattCharacteristic.PROPERTY_WRITE or
                     BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-            BluetoothGattCharacteristic.PERMISSION_READ or
-                    BluetoothGattCharacteristic.PERMISSION_WRITE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE,
         )
         // Descriptor that lets centrals subscribe to notifications.
         characteristic.addDescriptor(
@@ -476,11 +597,19 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                         BluetoothGattDescriptor.PERMISSION_WRITE,
             )
         )
+        // Where a guest writes the join code. A characteristic of its own (not a
+        // descriptor), so the host knows what a write means from where it lands.
+        val authCharacteristic = BluetoothGattCharacteristic(
+            Constants.AUTH_CHARACTERISTIC_UUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE,
+        )
         val service = BluetoothGattService(
             Constants.SERVICE_UUID,
             BluetoothGattService.SERVICE_TYPE_PRIMARY
         )
         service.addCharacteristic(characteristic)
+        service.addCharacteristic(authCharacteristic)
         server.addService(service)
 
         this.characteristic = characteristic
@@ -494,6 +623,11 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 //        dropped.forEach { emitConnection(it, "disconnected", BluetoothGatt.GATT_SUCCESS) }
         emitConnectionSuccess("roomClosed", "success")
         subscribers.clear()
+        authenticated.clear()
+        failedAttempts.clear()
+        authTimeouts.values.forEach { it.cancel() }
+        authTimeouts.clear()
+        deviceMtu.clear()
         gattServer?.close()
         gattServer = null
         characteristic = null

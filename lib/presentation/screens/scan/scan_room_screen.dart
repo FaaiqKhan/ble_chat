@@ -161,8 +161,9 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           rooms: state.rooms,
                           isScanning: state.isScanning,
                           onVerify: (selectedRoom, code) {
-                            // Add bloc
-                            Navigator.of(context).pushReplacement(
+                            // Stop searching, but keep the list for when the user comes back.
+                            scanSessionBloc.add(PauseScanEvent());
+                            Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
                                     BlocProvider<ConnectSessionBloc>(

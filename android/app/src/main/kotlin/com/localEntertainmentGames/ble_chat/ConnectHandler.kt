@@ -34,6 +34,9 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
 
         private const val CONNECTION_SETTINGS_SDK = 37
         private const val REQUESTED_MTU = 247
+
+        // How often the signal strength of the link to the host is read once joined.
+        private const val RSSI_INTERVAL_MS = 2_000L
     }
 
     // GATT callbacks run on this thread, never on the main thread, so a slow callback
@@ -52,6 +55,31 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     /** Reports a failure to Dart as a stream error. Main thread only, like [emit]. */
     private fun emitError(code: String, message: String) {
         scope.launch { eventSink?.error(code, message, null) }
+    }
+
+    /** Progress for Dart's step list: [step] (connect, discover, authenticate, join) is done. */
+    private fun emitStep(step: String) = emit(mapOf("type" to "progress", "step" to step))
+
+    /** A failure that ends the attempt: tell Dart, then drop the connection. */
+    private fun fail(code: String, message: String) {
+        emitError(code, message)
+        disconnectFromGATTServer()
+    }
+
+    // Reads the link's signal strength every RSSI_INTERVAL_MS while connected (also during
+    // the joining steps); the answer arrives in onReadRemoteRssi. Runs on the GATT thread.
+    // Reading the signal doesn't use the GATT request queue, so it can't collide with
+    // discovery or the code write.
+    private val rssiPoll = object : Runnable {
+        override fun run() {
+            val gatt = bluetoothGatt ?: return
+            try {
+                gatt.readRemoteRssi()
+            } catch (_: SecurityException) {
+                return
+            }
+            gattHandler.postDelayed(this, RSSI_INTERVAL_MS)
+        }
     }
 
     private var eventSink: EventChannel.EventSink? = null
@@ -81,6 +109,13 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
 
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private var adapter = bluetoothManager.adapter
+    // The join code for the connection being made. Used once, right after discovery.
+    private var authCode: String? = null
+
+    // The chat characteristic found at discovery. It only becomes bleCharacteristic (the
+    // one messages are sent to) once the host accepted the code and notifications are on.
+    @Volatile
+    private var discoveredChat: BluetoothGattCharacteristic? = null
 
     // Written from the main thread (connect / disconnect) and the GATT thread (callbacks).
     @Volatile
@@ -108,6 +143,14 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
                             "status" to "connected"
                         )
                     )
+                    emitStep("connect")
+                    // Linked: keep the signal bars live from now on, while the rest of
+                    // the joining steps run and after. connectGatt() may not have returned
+                    // yet (so the field can still be null); it is the same object.
+                    if (bluetoothGatt == null) bluetoothGatt = gatt
+                    gattHandler.removeCallbacks(rssiPoll)
+                    gattHandler.post(rssiPoll)
+
                     // The `GATT` the callback gives: the field may still be null here,
                     // because this can run before connectGatt() returns and it is assigned.
                     // Before Android 17 the MTU isn't raised automatically; ask for a bigger
@@ -153,25 +196,40 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             if (Build.VERSION.SDK_INT < CONNECTION_SETTINGS_SDK) gatt?.discoverServices()
         }
 
+        override fun onReadRemoteRssi(gatt: BluetoothGatt?, rssi: Int, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                emit(mapOf("type" to "rssi", "rssi" to rssi))
+            }
+        }
+
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             if (status != BluetoothGatt.GATT_SUCCESS || gatt == null) {
-                emitError("service_discovery_failed", "Service discovery failed (status $status)")
+                fail("service_discovery_failed", "Service discovery failed (status $status)")
                 return
             }
-            val characteristic = findGATTServerCharacteristics(
+            val chat = findGATTServerCharacteristics(
                 gatt,
                 Constants.SERVICE_UUID,
                 Constants.CHARACTERISTIC_UUID
             )
-            if (characteristic == null) {
-                emitError("service_not_found", "This device is not hosting a room")
+            val auth = findGATTServerCharacteristics(
+                gatt,
+                Constants.SERVICE_UUID,
+                Constants.AUTH_CHARACTERISTIC_UUID
+            )
+            if (chat == null || auth == null) {
+                fail("service_not_found", "This device is not hosting a room")
                 return
             }
-            bleCharacteristic = characteristic
-            // Ready is reported from onDescriptorWrite, once notifications are on:
-            // GATT runs one operation at a time, so a write sent before that fails.
-            if (!setNotify(gatt, characteristic)) {
-                emitError("notify_failed", "Could not enable notifications")
+            emitStep("discover")
+
+            // The host only lets a guest chat after it has received the join code, so the
+            // code goes first. Notifications are turned on once the host accepts it.
+            discoveredChat = chat
+            val code = authCode
+            authCode = null
+            if (code == null || !writeValue(gatt, auth, code.toByteArray(Charsets.UTF_8))) {
+                fail("auth_failed", "Could not send the join code")
             }
         }
 
@@ -180,6 +238,10 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             characteristic: BluetoothGattCharacteristic?,
             status: Int
         ) {
+            if (characteristic?.uuid == Constants.AUTH_CHARACTERISTIC_UUID) {
+                onAuthResult(gatt, status)
+                return
+            }
             val id = pendingMessageId.getAndSet(null)
             finishWrite(
                 if (status == BluetoothGatt.GATT_SUCCESS) null
@@ -205,19 +267,12 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         ) {
             if (descriptor?.uuid != Constants.CCCD_UUID) return
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                emitError(
-                    "notify_failed",
-                    "Could not enable notifications (status $status)"
-                )
+                fail("notify_failed", "Could not enable notifications (status $status)")
                 return
             }
-            // Connected, service found and notifications on: the room can be used.
-            emit(
-                mapOf(
-                    "type" to "service",
-                    "status" to "discovered"
-                )
-            )
+            // Connected, code accepted and notifications on: messages can now be sent.
+            bleCharacteristic = discoveredChat
+            emitStep("join")
         }
 
         // Android 13+ calls this one.
@@ -240,6 +295,26 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
             // Copied: the same characteristic object is reused by the next notification.
             characteristic?.value?.copyOf()?.let(::emitReceived)
+        }
+    }
+
+    /**
+     * The host answered the join code. Accepted: turn on notifications (the answer comes
+     * in onDescriptorWrite). Refused with INSUFFICIENT_AUTHENTICATION: the code was wrong.
+     */
+    private fun onAuthResult(gatt: BluetoothGatt?, status: Int) {
+        if (status != BluetoothGatt.GATT_SUCCESS) {
+            if (status == BluetoothGatt.GATT_INSUFFICIENT_AUTHENTICATION) {
+                fail("wrong_code", "That code didn't match")
+            } else {
+                fail("auth_failed", "The host could not check the code (status $status)")
+            }
+            return
+        }
+        emitStep("authenticate")
+        val chat = discoveredChat
+        if (gatt == null || chat == null || !setNotify(gatt, chat)) {
+            fail("notify_failed", "Could not enable notifications")
         }
     }
 
@@ -290,14 +365,31 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     }
 
     private fun connectToGATTServer(arguments: Any?) {
-        val hostDeviceAddress = (arguments as String?) ?: run {
+        val hostDeviceDetails = (arguments as? Map<*, *>) ?: run {
             eventSink?.error(
                 "invalid_argument",
-                "Device address is required",
+                "Device address and auth code is required",
                 null
             )
             return
         }
+        val address: String = (hostDeviceDetails["address"] as String?) ?: run {
+            eventSink?.error(
+                "missing_address",
+                "Device address is required",
+                null,
+            )
+            return
+        }
+        val authCode: String = (hostDeviceDetails["authCode"] as String?) ?: run {
+            eventSink?.error(
+                "missing_auth",
+                "Authentication code is required",
+                null,
+            )
+            return
+        }
+        this.authCode = authCode
         val adapter = adapter ?: run {
             eventSink?.error(
                 "unavailable",
@@ -308,7 +400,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         }
         bluetoothGatt?.close()
         val hostDevice = try {
-            adapter.getRemoteDevice(hostDeviceAddress)
+            adapter.getRemoteDevice(address)
         } catch (_: IllegalArgumentException) {
             eventSink?.error(
                 "invalid_argument",
@@ -374,13 +466,16 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     }
 
     private fun disconnectFromGATTServer() {
+        gattHandler.removeCallbacks(rssiPoll)
         finishWrite("disconnected" to "Disconnected before the write finished")
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
         // They belonged to the connection that just ended.
         bleCharacteristic = null
+        discoveredChat = null
         pendingMessageId.set(null)
+        authCode = null
         mtu = 23
     }
 
@@ -436,24 +531,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         }
         pendingMessageId.set(messageId)
 
-        val started = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                gatt.writeCharacteristic(
-                    characteristic,
-                    data,
-                    BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                ) == BluetoothStatusCodes.SUCCESS
-            } else {
-                @Suppress("DEPRECATION")
-                run {
-                    characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                    characteristic.value = data
-                    gatt.writeCharacteristic(characteristic)
-                }
-            }
-        } catch (_: SecurityException) {
-            false
-        }
+        val started = writeValue(gatt, characteristic, data)
         // The write never left the phone, so no callback will answer.
         if (!started) {
             pendingMessageId.set(null)
@@ -496,5 +574,29 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             descriptor.value = value
             gatt.writeDescriptor(descriptor)
         }
+    }
+
+    /** Starts writing [data] to [characteristic] (with response). False if it could not start. */
+    private fun writeValue(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic,
+        data: ByteArray
+    ): Boolean = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            gatt.writeCharacteristic(
+                characteristic,
+                data,
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            ) == BluetoothStatusCodes.SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            run {
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                characteristic.value = data
+                gatt.writeCharacteristic(characteristic)
+            }
+        }
+    } catch (_: SecurityException) {
+        false
     }
 }

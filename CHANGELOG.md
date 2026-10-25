@@ -1,5 +1,26 @@
 # Changelog
 
+# [1.10.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.9.0...v1.10.0) (2026-10-25)
+
+
+### Bug Fixes
+
+* auth code generation and visibility on advertising to host ([e9f1c11](https://github.com/FaaiqKhan/ble_chat/commit/e9f1c118b12424901976f932d55581096ea356a3))
+* error code request pairing to replaced with gatt server code ([382a341](https://github.com/FaaiqKhan/ble_chat/commit/382a3419d03634b09a78ace08e8677a92ad8bbf3))
+* first letter capitalize ([9dff0e2](https://github.com/FaaiqKhan/ble_chat/commit/9dff0e2556e449656204862c42158089e8b3c6c8))
+* keyboard input type for capatilization added ([43ce47a](https://github.com/FaaiqKhan/ble_chat/commit/43ce47a55f21b5488e7641ee4d8c5675988d322b))
+
+
+### Features
+
+* **chore:** function call added ([9e5b3ef](https://github.com/FaaiqKhan/ble_chat/commit/9e5b3efca50f969ca8ef2eaa8ded3b59de10abfa))
+* connect and disconnect function added with repository ([cc28f27](https://github.com/FaaiqKhan/ble_chat/commit/cc28f27c8fa87d8bdb80c9a7df3415c24a80f054))
+* connect screen with chat bloc state management ([ade5138](https://github.com/FaaiqKhan/ble_chat/commit/ade51388454fc6befebf2b90d552b3c610eba074))
+* custom button and connect screen added ([1803e10](https://github.com/FaaiqKhan/ble_chat/commit/1803e10b8c8656b9bd1606dafa348a7ae00ef8c1))
+* designs updates and connect handler with dart connection handling ([e9a0efc](https://github.com/FaaiqKhan/ble_chat/commit/e9a0efcaf80ea56b1463529c3b4c6509400fb493))
+* releasing handlers and corotuines when app gets killed ([0ff27df](https://github.com/FaaiqKhan/ble_chat/commit/0ff27df5952b4689d350c7c138513cf975430fb9))
+* ui update for button verify and chat session repository added ([d680e2c](https://github.com/FaaiqKhan/ble_chat/commit/d680e2c920c0985b58ebfba53069513fac8f95f1))
+
 # [1.9.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.8.0...v1.9.0) (2026-10-22)
 
 

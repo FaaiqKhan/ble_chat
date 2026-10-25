@@ -1,5 +1,5 @@
-import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
+import 'package:ble_chat/presentation/common/room_name_card.dart';
 import 'package:ble_chat/presentation/common/signal_bars.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_code_entry.dart';
@@ -13,7 +13,7 @@ class FoundRoomCard extends StatefulWidget {
   const FoundRoomCard({
     super.key,
     required this.room,
-    this.onVerify,
+    required this.onVerify,
     this.isVerifying = false,
     this.hasCodeError = false,
     this.onCodeChanged,
@@ -22,7 +22,7 @@ class FoundRoomCard extends StatefulWidget {
   final FoundRoom room;
 
   /// Called with the 6 digits when Verify & Join is pressed.
-  final ValueChanged<String>? onVerify;
+  final ValueChanged<String> onVerify;
 
   /// The code is being checked with the host.
   final bool isVerifying;
@@ -38,13 +38,13 @@ class FoundRoomCard extends StatefulWidget {
 }
 
 class _FoundRoomCardState extends State<FoundRoomCard> {
-  late final ExpansibleController _controller;
   late final FocusNode _codeFocus;
+  late final ExpansibleController _expansibleController;
 
   @override
   void initState() {
     super.initState();
-    _controller = ExpansibleController();
+    _expansibleController = ExpansibleController();
     _codeFocus = FocusNode();
   }
 
@@ -52,24 +52,24 @@ class _FoundRoomCardState extends State<FoundRoomCard> {
   void didUpdateWidget(FoundRoomCard old) {
     super.didUpdateWidget(old);
     // The room became full or too weak while its code entry was open.
-    if (!widget.room.isJoinable && _controller.isExpanded) {
-      _controller.collapse();
+    if (!widget.room.isJoinable && _expansibleController.isExpanded) {
+      _expansibleController.collapse();
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _expansibleController.dispose();
     _codeFocus.dispose();
     super.dispose();
   }
 
   void _toggle() {
-    if (_controller.isExpanded) {
+    if (_expansibleController.isExpanded) {
       _codeFocus.unfocus();
-      _controller.collapse();
+      _expansibleController.collapse();
     } else {
-      _controller.expand();
+      _expansibleController.expand();
       // The code field exists once the body is built.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _codeFocus.requestFocus();
@@ -82,137 +82,121 @@ class _FoundRoomCardState extends State<FoundRoomCard> {
     final cs = Theme.of(context).colorScheme;
     final palette = context.palette;
 
-    final (signalLabel, signalColor) = widget.room.isFull
-        ? ("Room full", palette.badFg)
-        : switch (bluetoothSignalOf(widget.room.rssi)) {
-            BluetoothSignal.good => ("Strong signal", palette.okFg),
-            BluetoothSignal.weak => ("Weak signal", palette.warnFg),
-            BluetoothSignal.poor => ("Very weak signal", palette.badFg),
-          };
-
     final radius = BorderRadius.circular(AppRadius.lg);
 
     // Gone, full or too weak to connect: dimmed, and taps do nothing.
     return Opacity(
       opacity: widget.room.isJoinable ? 1 : 0.5,
-      child: Material(
-        color: cs.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: cs.outline, width: 1.5),
-        ),
-        clipBehavior: Clip.antiAlias,
-        elevation: 0,
+      // Rebuilds the card's colours and border whenever it expands or collapses.
+      // (The controller notifies; nothing else would re-run this build.)
+      child: ListenableBuilder(
+        listenable: _expansibleController,
+        builder: (context, child) {
+          final expanded = _expansibleController.isExpanded;
+          return Material(
+            color: expanded ? palette.ctaSoft : cs.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: BorderSide(
+                width: expanded ? 2 : 1.5,
+                color: expanded ? cs.primary : cs.outline,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            elevation: 0,
+            child: child,
+          );
+        },
+        // Built once; it handles its own expand / collapse.
         child: Expansible(
-          controller: _controller,
+          controller: _expansibleController,
           // A closed card forgets what was typed.
           maintainState: false,
           // Only the header toggles; taps inside the code entry must not.
-          headerBuilder: (context, animation) => InkWell(
-            onTap: widget.room.isJoinable ? _toggle : null,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _cardBody(context, signalLabel, signalColor),
-            ),
-          ),
-          bodyBuilder: (context, animation) => Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: cs.outlineVariant)),
-            ),
-            child: RoomCodeEntry(
-              focusNode: _codeFocus,
-              onVerify: widget.onVerify,
-              isVerifying: widget.isVerifying,
-              hasError: widget.hasCodeError,
-              onChanged: widget.onCodeChanged,
-            ),
-          ),
+          headerBuilder: (context, _) => _cardBody(context),
+          bodyBuilder: (context, _) => _roomCodeEntry(context, cs),
         ),
       ),
     );
   }
 
-  Widget _cardBody(BuildContext context, String label, Color signalColor) {
+  Widget _cardBody(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final palette = context.palette;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return InkWell(
+      onTap: widget.room.isJoinable ? _toggle : _toggle,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: palette.primarySoft,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: palette.primaryBorder),
-              ),
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                children: [
-                  Text(widget.room.name, style: tt.headlineSmall),
-                  Text(
-                    "·",
-                    style: tt.titleLarge?.copyWith(
-                      fontFamily: AppFonts.mono,
-                      color: palette.primaryFg,
-                    ),
-                  ),
-                  Text(
-                    widget.room.code,
-                    style: tt.titleLarge?.copyWith(
-                      fontFamily: AppFonts.mono,
-                      letterSpacing: 1.3,
-                      color: palette.primaryFg,
-                    ),
-                  ),
-                ],
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                RoomNameCard(name: widget.room.name, code: widget.room.code),
+                const SpacerBox(
+                  type: SpacerBoxType.horizontal,
+                  size: SpacerBoxSize.medium,
+                ),
+                SignalBars(rssi: widget.room.rssi, barWidth: 5),
+              ],
             ),
             const SpacerBox(
-              type: SpacerBoxType.horizontal,
+              type: SpacerBoxType.vertical,
               size: SpacerBoxSize.medium,
             ),
-            SignalBars(rssi: widget.room.rssi, barWidth: 5),
-          ],
-        ),
-        const SpacerBox(
-          type: SpacerBoxType.vertical,
-          size: SpacerBoxSize.medium,
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                "${widget.room.people} / ${widget.room.maxPeople} people",
-                style: tt.bodyMedium?.copyWith(
-                  fontFamily: AppFonts.mono,
-                  fontWeight: FontWeight.w700,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "${widget.room.people} / ${widget.room.maxPeople} people",
+                    style: tt.bodyMedium?.copyWith(
+                      fontFamily: AppFonts.mono,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-                softWrap: true,
-              ),
-            ),
 
-            if (widget.room.isFull)
-              Text("FULL", style: tt.titleSmall?.copyWith(color: palette.badFg))
-            else if (!widget.room.isAvailable)
-              Text(
-                "NOT AVAILABLE",
-                style: tt.titleSmall?.copyWith(color: palette.badFg),
-              )
-            else
-              Text(
-                _controller.isExpanded ? "ENTER CODE" : "TAP TO JOIN",
-                style: tt.titleSmall?.copyWith(color: palette.primaryFg),
-              ),
+                if (widget.room.isFull)
+                  Text(
+                    "FULL",
+                    style: tt.titleSmall?.copyWith(color: palette.badFg),
+                  )
+                else if (!widget.room.isAvailable)
+                  Text(
+                    "NOT AVAILABLE",
+                    style: tt.titleSmall?.copyWith(color: palette.badFg),
+                  )
+                else
+                  Text(
+                    _expansibleController.isExpanded
+                        ? "ENTER CODE"
+                        : "TAP TO JOIN",
+                    style: tt.titleSmall?.copyWith(color: palette.primaryFg),
+                  ),
+              ],
+            ),
           ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _roomCodeEntry(BuildContext context, ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: cs.outlineVariant)),
+      ),
+      child: RoomCodeEntry(
+        focusNode: _codeFocus,
+        onVerify: widget.onVerify,
+        hasError: widget.hasCodeError,
+        onChanged: widget.onCodeChanged,
+      ),
     );
   }
 }

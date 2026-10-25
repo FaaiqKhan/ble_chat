@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/host/host_room_screen.dart';
 import 'package:ble_chat/theme/app_palette.dart';
@@ -77,7 +78,7 @@ class CloseRoomSheet extends StatelessWidget {
             ),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
+              child: BleChatOutlinedButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 child: const Text("Keep Hosting"),
               ),

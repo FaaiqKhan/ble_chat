@@ -1,3 +1,4 @@
+import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_bloc.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_event.dart';
 import 'package:ble_chat/business_logic/host_session/host_session_state.dart';
@@ -5,6 +6,7 @@ import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
 import 'package:ble_chat/presentation/common/close_room_sheet.dart';
 import 'package:ble_chat/presentation/common/dashed_border.dart';
+import 'package:ble_chat/presentation/common/failed_banner.dart';
 import 'package:ble_chat/presentation/common/closing_room_banner.dart';
 import 'package:ble_chat/presentation/common/host_room_label_card.dart';
 import 'package:ble_chat/presentation/common/host_room_status_chip.dart';
@@ -110,6 +112,7 @@ class HostRoomScreen extends StatelessWidget {
                           HostRoomLabelCard(
                             name: hostSessionBloc.state.roomName,
                             code: hostSessionBloc.state.code,
+                            authCode: hostSessionBloc.state.authCode,
                           ),
                           const SpacerBox(
                             type: SpacerBoxType.vertical,
@@ -124,7 +127,6 @@ class HostRoomScreen extends StatelessWidget {
                             size: SpacerBoxSize.medium,
                           ),
                           switch (hostSessionBloc.state.status) {
-                            // TODO: Handle this case.
                             HostSessionStatus.idle => const SizedBox.shrink(),
                             HostSessionStatus.starting =>
                               const HostRoomSettingUp(),
@@ -132,12 +134,15 @@ class HostRoomScreen extends StatelessWidget {
                             HostSessionStatus.closeFailed => Column(
                               children: [
                                 if (closeFailed)
-                                  const _FailedBanner(
+                                  const FailedBanner(
                                     title: "Couldn’t close your room",
                                     message: "Please try again.",
                                   )
                                 else if (failed)
-                                  const _FailedBanner()
+                                  const FailedBanner(
+                                    title: "Couldn’t start your room",
+                                    message: "Nearby devices can’t see it yet.",
+                                  )
                                 else if (inStartup)
                                   const SizedBox.shrink()
                                 else if (hostSessionBloc.isFull)
@@ -187,8 +192,7 @@ class HostRoomScreen extends StatelessWidget {
                                 },
                                 child: const ClosingRoomBanner(),
                               ),
-                            HostSessionStatus.closed => const SizedBox.shrink(),
-                            // TODO: Handle this case.
+                            HostSessionStatus.closed ||
                             HostSessionStatus.failed => const SizedBox.shrink(),
                           },
                         ],
@@ -200,7 +204,7 @@ class HostRoomScreen extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        OutlinedButton(
+                        BleChatOutlinedButton(
                           onPressed: closeFailed
                               ? () => hostSessionBloc.add(
                                   DismissCloseErrorEvent(),
@@ -208,17 +212,9 @@ class HostRoomScreen extends StatelessWidget {
                               : failed
                               ? Navigator.of(context).pop
                               : () => handleRoomClose(context, hostSessionBloc),
-                          style: failed || closeFailed
-                              ? OutlinedButton.styleFrom(
-                                  foregroundColor: context.palette.ctaFg,
-                                )
-                              : OutlinedButton.styleFrom(
-                                  foregroundColor: context.palette.error,
-                                  side: BorderSide(
-                                    color: context.palette.error,
-                                    width: 1.5,
-                                  ),
-                                ),
+                          tone: failed || closeFailed
+                              ? BleChatButtonTone.primary
+                              : BleChatButtonTone.danger,
                           child: Text(
                             closeFailed
                                 ? "Back"
@@ -641,46 +637,3 @@ class _MemberRow extends StatelessWidget {
 }
 
 enum _RowKind { host, guest, empty }
-
-class _FailedBanner extends StatelessWidget {
-  const _FailedBanner({
-    this.title = "Couldn’t start your room",
-    this.message = "Nearby devices can’t see it yet.",
-  });
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-    final palette = context.palette;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: palette.errorSoft,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: palette.error, width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: palette.badFg, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                Text(message, style: tt.bodySmall),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

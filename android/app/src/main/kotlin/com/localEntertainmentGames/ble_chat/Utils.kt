@@ -1,9 +1,12 @@
 package com.localEntertainmentGames.ble_chat
 
+import kotlin.math.pow
+
 object Utils {
     const val IDENTITY_SEPARATOR = " · "
 
     private const val CODE_LENGTH = 4
+    private const val AUTH_CODE_LENGTH = 6
 
     // Payload layout: marker, people, max, 4-byte code, then the room name.
     private const val HEADER_LENGTH = 3
@@ -99,5 +102,15 @@ object Utils {
             sender = String(payload, MESSAGE_ID_BYTES + 1, senderLength, Charsets.UTF_8),
             text = payload.copyOfRange(textStart, payload.size),
         )
+    }
+
+    /**
+     * A random 6-digit code ("004281" is possible, so it stays a string). SecureRandom, not
+     * kotlin.random.Random: the code is what stops a stranger joining, so it must not be
+     * predictable.
+     */
+    fun generateAuthCode(): String {
+        val limit = 10.0.pow(AUTH_CODE_LENGTH.toDouble()).toInt()
+        return random.nextInt(limit).toString().padStart(AUTH_CODE_LENGTH, '0')
     }
 }

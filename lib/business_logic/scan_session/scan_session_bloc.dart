@@ -6,12 +6,14 @@ import 'package:ble_chat/common/bluetooth_signal.dart';
 import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:ble_chat/domain/entities/scanner_event.dart';
 import 'package:ble_chat/domain/repository/scan_session_repository.dart';
+import 'package:ble_chat/utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
   ScanSessionBloc(super.initialState, {required this._scanSessionRepository}) {
     on<ScanRoomEvent>(_onScanRoomEvent);
     on<StopScanRoomEvent>(_onStopScanRoomEvent);
+    on<PauseScanEvent>(_onPauseScanEvent);
     on<ScanEventReceived>(_onScanEventReceived);
     on<StaleRoomsCheck>(_onStaleRoomsCheck);
   }
@@ -83,6 +85,27 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
     _scanSubscription = null;
     _staleTimer?.cancel();
     emit(const ScanSessionState());
+    await _scanSessionRepository.stopScanning();
+  }
+
+  Future<void> _onPauseScanEvent(
+    PauseScanEvent event,
+    Emitter<ScanSessionState> emit,
+  ) async {
+    // Nothing is listed, or the scan already ended: there is nothing to pause.
+    if (state.status != ScanSessionStatus.scanning) return;
+    await _scanSubscription?.cancel();
+    _scanSubscription = null;
+    _staleTimer?.cancel();
+    // Same as a scan that ran out of time: the rooms found stay as they are.
+    emit(
+      state.copyWith(
+        status: state.rooms.isEmpty
+            ? ScanSessionStatus.idle
+            : ScanSessionStatus.scanned,
+        isScanning: false,
+      ),
+    );
     await _scanSessionRepository.stopScanning();
   }
 
@@ -164,12 +187,14 @@ class ScanSessionBloc extends Bloc<ScanSessionEvent, ScanSessionState> {
       return [
         ...state.rooms,
         FoundRoom(
+          id: generateCode(),
           name: event.roomName,
           code: event.roomCode,
           address: event.address,
           rssi: rssi,
           people: event.people,
           maxPeople: event.maxPeople,
+          hostName: "Faiq",
         ),
       ];
     }

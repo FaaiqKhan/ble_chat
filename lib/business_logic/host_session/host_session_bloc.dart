@@ -67,11 +67,13 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
     ),
     // Late progress after a failure or close must not revive the steps.
     _ when state.status != HostSessionStatus.starting => state,
-    HostSessionProgressEvent(:final step) => state.copyWith(
+    HostSessionProgressEvent(:final step, :final authCode) => state.copyWith(
       progress: HostSessionProgress.completed(step),
       status: step == HostSessionProgressStep.advertising
           ? HostSessionStatus.hosting
           : HostSessionStatus.starting,
+      // Null (the other steps) keeps the code already shown.
+      authCode: authCode,
     ),
     HostSessionFailedEvent(:final step) => _failedAt(step),
     UnknownAdvertiserEvent() => state,

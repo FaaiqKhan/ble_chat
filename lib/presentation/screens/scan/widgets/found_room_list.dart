@@ -12,7 +12,7 @@ class FoundRoomList extends StatelessWidget {
     required this.rooms,
     required this.isScanning,
     required this.query,
-    this.onVerify,
+    required this.onVerify,
     this.verifyingAddress,
     this.wrongCodeAddress,
     this.onCodeChanged,
@@ -23,7 +23,7 @@ class FoundRoomList extends StatelessWidget {
   /// Called with the room and the 6 digits typed for it when Verify & Join is
   /// pressed. Rooms that are gone, full or too weak ([FoundRoom.isJoinable])
   /// can't be opened.
-  final void Function(FoundRoom room, String code)? onVerify;
+  final void Function(FoundRoom room, String code) onVerify;
 
   /// Address of the room whose code is being checked, if any.
   final String? verifyingAddress;
@@ -98,11 +98,9 @@ class FoundRoomList extends StatelessWidget {
             // Rooms are told apart by host address, so a row keeps its state
             // while the list grows.
             itemBuilder: (_, i) => FoundRoomCard(
-              key: ValueKey(rooms[i].address),
               room: rooms[i],
-              onVerify: onVerify == null
-                  ? null
-                  : (code) => onVerify!(rooms[i], code),
+              key: ValueKey(rooms[i].address),
+              onVerify: (code) => onVerify(rooms[i], code),
             ),
           ),
         ),

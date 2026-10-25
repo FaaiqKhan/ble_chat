@@ -5,14 +5,20 @@ import 'package:equatable/equatable.dart';
 /// tells them apart.
 class FoundRoom extends Equatable {
   const FoundRoom({
+    required this.id,
     required this.name,
     required this.code,
     required this.address,
     required this.rssi,
     required this.people,
     required this.maxPeople,
+    required this.hostName,
     this.isAvailable = true,
   });
+
+  /// A unique identifier for the user.
+  /// Auto generated on the creation of object.
+  final String id;
 
   final String name;
   final String code;
@@ -32,12 +38,18 @@ class FoundRoom extends Equatable {
   /// closed the room.
   final bool isAvailable;
 
+  /// This will be used to show when user scanned the room and trying to join
+  /// it's value will be set from the native while creating room instance
+  /// this value cannot be changed once the instance is created
+  final String hostName;
+
   /// Whether the room can be joined: still around, a spot is free, and the
   /// signal isn't so weak that the connection would fail.
   bool get isJoinable =>
       isAvailable && !isFull && bluetoothSignalOf(rssi) != BluetoothSignal.poor;
 
   FoundRoom copyWith({int? rssi, int? people, bool? isAvailable}) => FoundRoom(
+    id: id,
     name: name,
     code: code,
     address: address,
@@ -45,6 +57,7 @@ class FoundRoom extends Equatable {
     people: people ?? this.people,
     maxPeople: maxPeople,
     isAvailable: isAvailable ?? this.isAvailable,
+    hostName: hostName,
   );
 
   @override

@@ -1,14 +1,19 @@
+import 'package:ble_chat/business_logic/connect_session/connect_session_bloc.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_event.dart';
+import 'package:ble_chat/business_logic/connect_session/connect_session_state.dart';
+import 'package:ble_chat/data/repository_impl/connect_session_repository_impl.dart';
+import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
 import 'package:ble_chat/business_logic/bluetooth_manager/bluetooth_manager_cubit.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_event.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/presentation/common/app_padding.dart';
-import 'package:ble_chat/presentation/common/chat_icon_button.dart';
+import 'package:ble_chat/presentation/common/screen_header.dart';
+import 'package:ble_chat/presentation/screens/connect/connect_screen.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/room_not_found_card.dart';
 import 'package:ble_chat/presentation/common/spacer_box.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/found_room_list.dart';
 import 'package:ble_chat/presentation/screens/scan/widgets/scan_radar.dart';
-import 'package:ble_chat/theme/app_palette.dart';
 import 'package:ble_chat/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,7 +54,6 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final palette = context.palette;
 
     final scanSessionBloc = context.read<ScanSessionBloc>();
     final isBluetoothReady =
@@ -57,13 +61,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
         false;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: ChatIconButton(
-          iconData: Icons.arrow_back_ios_new_rounded,
-          onPressed: Navigator.of(context).pop,
-        ),
-        title: Text("Join a Chat", style: tt.headlineSmall),
-      ),
+      appBar: const ScreenHeader(name: "Join a Chat"),
       body: SafeArea(
         child: Padding(
           padding: AppPadding.portraitScreen,
@@ -96,6 +94,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           maxLength: _maxQueryLength,
                           style: tt.titleMedium,
                           textInputAction: TextInputAction.search,
+                          textCapitalization: TextCapitalization.sentences,
                           onSubmitted: (_) {
                             if (canSearch) {
                               scanSessionBloc.add(ScanRoomEvent(_query));
@@ -118,12 +117,9 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                       SizedBox(
                         height: 56,
                         child: scanning
-                            ? OutlinedButton(
+                            ? BleChatOutlinedButton(
                                 onPressed: () =>
                                     scanSessionBloc.add(StopScanRoomEvent()),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: palette.ctaFg,
-                                ),
                                 child: const Text("Cancel"),
                               )
                             : ElevatedButton(
@@ -164,6 +160,26 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                           query: _query,
                           rooms: state.rooms,
                           isScanning: state.isScanning,
+                          onVerify: (selectedRoom, code) {
+                            // Stop searching, but keep the list for when the user comes back.
+                            scanSessionBloc.add(PauseScanEvent());
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    BlocProvider<ConnectSessionBloc>(
+                                      create: (_) => ConnectSessionBloc(
+                                        ConnectSessionState(
+                                          room: selectedRoom,
+                                          authCode: code,
+                                        ),
+                                        connectSessionRepository:
+                                            ConnectSessionRepositoryImpl(),
+                                      )..add(ConnectChatSessionEvent()),
+                                      child: ConnectScreen(),
+                                    ),
+                              ),
+                            );
+                          },
                         ),
                         ScanSessionStatus.notFound => Align(
                           alignment: Alignment.topCenter,

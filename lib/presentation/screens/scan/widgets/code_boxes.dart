@@ -139,3 +139,69 @@ class _CodeBox extends StatelessWidget {
     );
   }
 }
+
+class AuthCodeBoxes extends StatelessWidget {
+  const AuthCodeBoxes({super.key, required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final palette = context.palette;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
+        Divider(color: palette.primaryBorder),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
+        Text(
+          "CODE · 6 DIGITS",
+          style: tt.labelSmall?.copyWith(
+            fontFamily: AppFonts.mono,
+            fontSize: 10,
+            letterSpacing: 0.8,
+            color: palette.primaryStrong,
+          ),
+        ),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
+        Row(
+          children: [
+            for (var i = 0; i < code.length; i++) ...[
+              if (i > 0)
+                const SpacerBox(
+                  type: SpacerBoxType.horizontal,
+                  size: SpacerBoxSize.medium,
+                ),
+              Expanded(
+                child: _CodeBox(
+                  digit: code[i],
+                  isNext: i == code.length,
+                  hasError: false,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SpacerBox(
+          type: SpacerBoxType.vertical,
+          size: SpacerBoxSize.medium,
+        ),
+        Text(
+          "Share this code with guests. They enter it to join the chat.",
+          style: tt.labelMedium,
+        ),
+      ],
+    );
+  }
+}

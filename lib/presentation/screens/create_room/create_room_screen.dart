@@ -110,7 +110,7 @@ class _CreateRoomState extends State<CreateRoom> {
                           controller: _hostNameController,
                           validator: validateHostName,
                           maxLength: maxPlayerNameLength,
-                          hintText: "e.g. Maya",
+                          hintText: "e.g. Faiq",
                           neutralMessage:
                               "2–$maxPlayerNameLength characters. Shown to people in the room.",
                           showErrors: _submitted,

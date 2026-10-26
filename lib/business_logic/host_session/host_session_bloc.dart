@@ -11,9 +11,7 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
   HostSessionBloc(super.initialState, {required this._hostSessionRepository}) {
     on<StartHostingEvent>(_onStartHostingEvent);
     on<CloseRoomEvent>(_onCloseRoomEvent);
-    on<DismissCloseErrorEvent>(
-      (_, emit) => emit(state.copyWith(status: HostSessionStatus.hosting)),
-    );
+    on<DismissCloseErrorEvent>(_onDismissCloseErrorEvent);
     on<PeerJoinedEvent>(_onPeerJoinedEvent);
     on<PeerSignalStrengthEvent>(_onPeerSignalStrengthEvent);
   }
@@ -46,8 +44,9 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
     );
     try {
       await _hostSessionRepository.start(
-        name: state.roomName,
         code: state.code,
+        name: state.roomName,
+        hostName: state.hostName,
         maxPeople: state.maxPeople,
       );
     } catch (_) {
@@ -97,6 +96,11 @@ class HostSessionBloc extends Bloc<HostSessionEvent, HostSessionState> {
       emit(state.copyWith(status: HostSessionStatus.closeFailed));
     }
   }
+
+  void _onDismissCloseErrorEvent(
+    DismissCloseErrorEvent event,
+    Emitter<HostSessionState> emit,
+  ) => emit(state.copyWith(status: HostSessionStatus.hosting));
 
   void _onPeerJoinedEvent(
     PeerJoinedEvent event,

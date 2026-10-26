@@ -117,6 +117,11 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
     @Volatile
     private var discoveredChat: BluetoothGattCharacteristic? = null
 
+    // Where the join code is written. Kept because the host name is read first, and the
+    // code is only sent from that read's callback.
+    @Volatile
+    private var discoveredAuth: BluetoothGattCharacteristic? = null
+
     // Written from the main thread (connect / disconnect) and the GATT thread (callbacks).
     @Volatile
     private var bluetoothGatt: BluetoothGatt? = null
@@ -224,13 +229,44 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
             emitStep("discover")
 
             // The host only lets a guest chat after it has received the join code, so the
-            // code goes first. Notifications are turned on once the host accepts it.
+            // code goes next. Notifications are turned on once the host accepts it.
             discoveredChat = chat
-            val code = authCode
-            authCode = null
-            if (code == null || !writeValue(gatt, auth, code.toByteArray(Charsets.UTF_8))) {
-                fail("auth_failed", "Could not send the join code")
+            discoveredAuth = auth
+
+            // First the host's name, for the "Hosted by" line. GATT does one operation at a
+            // time, so the code is sent from the read's callback. A host without the name
+            // characteristic (or a read that can't start) just skips ahead.
+            val hostNameCharacteristic = findGATTServerCharacteristics(
+                gatt,
+                Constants.SERVICE_UUID,
+                Constants.HOST_NAME_UUID
+            )
+            if (hostNameCharacteristic == null || !readHostName(gatt, hostNameCharacteristic)) {
+                sendAuthCode(gatt)
             }
+        }
+
+        // Android 13+ calls this one.
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
+            onHostNameRead(gatt, characteristic, value, status)
+        }
+
+        // Android 12 and older call this one; the value is on the characteristic.
+        @Deprecated("Used for Android 12 and older")
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
+            if (gatt == null || characteristic == null) return
+            onHostNameRead(gatt, characteristic, characteristic.value?.copyOf(), status)
         }
 
         override fun onCharacteristicWrite(
@@ -316,6 +352,45 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         val chat = discoveredChat
         if (gatt == null || chat == null || !setNotify(gatt, chat)) {
             fail("notify_failed", "Could not enable notifications")
+        }
+    }
+
+    /** Starts reading the host's name. False if the read could not start. */
+    private fun readHostName(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic
+    ): Boolean = try {
+        gatt.readCharacteristic(characteristic)
+    } catch (_: SecurityException) {
+        false
+    }
+
+    /**
+     * The host name read finished. The name is only for display, so a failed read doesn't
+     * stop the join: either way the join code is sent next.
+     */
+    private fun onHostNameRead(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic,
+        value: ByteArray?,
+        status: Int
+    ) {
+        if (characteristic.uuid != Constants.HOST_NAME_UUID) return
+        if (status == BluetoothGatt.GATT_SUCCESS && value != null) {
+            emit(mapOf("type" to "host", "name" to String(value, Charsets.UTF_8)))
+        }
+        sendAuthCode(gatt)
+    }
+
+    /** Writes the join code to the host. The answer arrives in onCharacteristicWrite. */
+    private fun sendAuthCode(gatt: BluetoothGatt) {
+        val code = authCode
+        authCode = null
+        val auth = discoveredAuth
+        if (code == null || auth == null ||
+            !writeValue(gatt, auth, code.toByteArray(Charsets.UTF_8))
+        ) {
+            fail("auth_failed", "Could not send the join code")
         }
     }
 
@@ -475,6 +550,7 @@ class ConnectHandler(private val context: Context) : MethodChannel.MethodCallHan
         // They belonged to the connection that just ended.
         bleCharacteristic = null
         discoveredChat = null
+        discoveredAuth = null
         pendingMessageId.set(null)
         authCode = null
         mtu = 23

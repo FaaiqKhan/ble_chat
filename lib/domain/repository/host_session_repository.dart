@@ -7,6 +7,7 @@ abstract class HostSessionRepository {
     required String name,
     required String code,
     required int maxPeople,
+    required String hostName,
   });
 
   /// Tells nearby scanners how many people are in the room now, so they can

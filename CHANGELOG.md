@@ -1,5 +1,12 @@
 # Changelog
 
+# [1.12.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.11.0...v1.12.0) (2026-10-26)
+
+
+### Features
+
+* guest name added ([847daec](https://github.com/FaaiqKhan/ble_chat/commit/847daec521f1780e993a9deac583beff5b6edf46))
+
 # [1.11.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.10.0...v1.11.0) (2026-10-26)
 
 

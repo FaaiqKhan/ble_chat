@@ -22,6 +22,7 @@ class ConnectSessionState extends Equatable {
     this.step = ConnectSessionProgressStep.connect,
     this.progress = const [],
     this.rssi,
+    this.hostName,
     this.errorCode,
     this.errorMessage,
   });
@@ -33,6 +34,9 @@ class ConnectSessionState extends Equatable {
 
   /// The startup steps and where each one is. Empty until connecting starts.
   final List<ConnectSessionProgress> progress;
+
+  /// Who hosts the room. Null until the host has been read.
+  final String? hostName;
 
   /// Live signal strength of the link to the host. Null until a reading arrives,
   /// so [signal] falls back to what the scan saw.
@@ -50,6 +54,7 @@ class ConnectSessionState extends Equatable {
     ConnectSessionProgressStep? step,
     List<ConnectSessionProgress>? progress,
     int? rssi,
+    String? hostName,
     String? errorCode,
     String? errorMessage,
   }) {
@@ -60,6 +65,7 @@ class ConnectSessionState extends Equatable {
       step: step ?? this.step,
       progress: progress ?? this.progress,
       rssi: rssi ?? this.rssi,
+      hostName: hostName ?? this.hostName,
       // Cleared whenever a new status doesn't bring one.
       errorCode: errorCode,
       errorMessage: errorMessage,
@@ -72,6 +78,7 @@ class ConnectSessionState extends Equatable {
     step,
     progress,
     rssi,
+    hostName,
     errorCode,
     errorMessage,
   ];

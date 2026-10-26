@@ -34,14 +34,8 @@ class HostParticipant {
 }
 
 class HostRoomScreen extends StatelessWidget {
-  const HostRoomScreen({
-    super.key,
-    this.hostName = 'You',
-    this.bluetoothOn = true,
-    this.onOpenChat,
-  });
+  const HostRoomScreen({super.key, this.bluetoothOn = true, this.onOpenChat});
 
-  final String hostName;
   final bool bluetoothOn;
 
   /// Called when the host opens the chat; only reachable once someone joined.
@@ -168,7 +162,9 @@ class HostRoomScreen extends StatelessWidget {
                                     type: SpacerBoxType.vertical,
                                     size: SpacerBoxSize.medium,
                                   ),
-                                  _MemberRow.host(name: hostName),
+                                  _MemberRow.host(
+                                    name: hostSessionBloc.state.hostName,
+                                  ),
                                   for (final p
                                       in hostSessionBloc.state.participants)
                                     _MemberRow.guest(p),

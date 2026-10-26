@@ -158,7 +158,7 @@ class ConnectScreen extends StatelessWidget {
                       size: SpacerBoxSize.small,
                     ),
                     Text(
-                      "Hosted by ${room.hostName}",
+                      "Hosted by ${state.hostName ?? '…'}",
                       style: tt.bodyMedium?.copyWith(
                         color: cs.onSurfaceVariant,
                       ),

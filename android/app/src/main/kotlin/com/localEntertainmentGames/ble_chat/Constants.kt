@@ -16,4 +16,6 @@ object Constants {
     val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     // Write-only: a guest writes the 6-digit join code here right after connecting.
     val AUTH_CHARACTERISTIC_UUID: UUID = UUID.fromString("0000cafe-0000-1000-8000-00805f9b34fb")
+    // Read-only: the name of the person hosting the room, read by a guest after joining.
+    val HOST_NAME_UUID: UUID = UUID.fromString("0000c00c-0000-1000-8000-00805f9b34fb")
 }

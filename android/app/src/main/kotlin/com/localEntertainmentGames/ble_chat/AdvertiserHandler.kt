@@ -84,6 +84,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
     private val mainCoroutineScope = MainScope()
     private var autoStopJob: Job? = null
     private var authCode: String? = null
+    private var hostName: String? = null
 
     // Addresses of the guests that sent the right code. Only these may chat or subscribe.
     private val authenticated: MutableSet<String> = ConcurrentHashMap.newKeySet()
@@ -114,15 +115,18 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
                 // itself only acknowledges that the request was received.
                 result.success(null)
                 val details = Utils.getRoomDetails(call.arguments())
-                if (details == null) {
+                // The host's name isn't part of the advertisement (it doesn't fit); guests
+                // read it from the GATT server after connecting.
+                val host = (call.arguments as? Map<*, *>)?.get("hostName") as? String
+                if (details == null || host.isNullOrEmpty()) {
                     eventSink?.error(
                         "invalid_format",
-                        "Argument must be a Map with roomName and roomCode",
+                        "Argument must be a Map with roomName, roomCode and hostName",
                         null
                     )
                     return
                 }
-                start(details)
+                start(details, host)
             }
 
             "updatePeople" -> {
@@ -190,7 +194,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         }
     }
 
-    private fun start(details: Utils.RoomAd) {
+    private fun start(details: Utils.RoomAd, host: String) {
         val adapter = adapter
         if (adapter == null || !adapter.isEnabled) {
             emitConnectionError("bluetooth", "Bluetooth is not ready")
@@ -222,6 +226,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
         // GATT service after connecting. The identity is not put in the Bluetooth device
         // name: renaming the adapter is asynchronous and would rename the user's phone.
         room = details
+        hostName = host
         val advertiseData = buildAdvertiseData(details) ?: return
 
         val settings = advertiseSettings(ADVERTISE_DURATION_MS, details.people < details.maxPeople)
@@ -298,6 +303,7 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             // The code belongs to the room, not to advertising: it stays valid when
             // advertising merely times out, and goes when the room closes.
             authCode = null
+            hostName = null
             room = null
             closeGattServer()
         }
@@ -318,6 +324,41 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
 
         override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
             if (device != null) deviceMtu[device] = mtu
+        }
+
+        override fun onCharacteristicReadRequest(
+            device: BluetoothDevice?,
+            requestId: Int,
+            offset: Int,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            if (device == null) return
+
+            // Every read must be answered exactly once, or the guest waits and, after about
+            // 30 seconds, the connection is dropped. Android does not reply for us.
+            val server = gattServer ?: return
+            val name = if (characteristic?.uuid == Constants.HOST_NAME_UUID) {
+                hostName?.toByteArray(Charsets.UTF_8)
+            } else {
+                null
+            }
+            when {
+                // Not a characteristic that can be read, or the room has no host name.
+                name == null -> server.sendResponse(
+                    device, requestId, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, offset, null
+                )
+                // A read can be split into parts; offset is where this one starts.
+                offset > name.size -> server.sendResponse(
+                    device, requestId, BluetoothGatt.GATT_INVALID_OFFSET, offset, null
+                )
+                else -> server.sendResponse(
+                    device,
+                    requestId,
+                    BluetoothGatt.GATT_SUCCESS,
+                    offset,
+                    name.copyOfRange(offset, name.size)
+                )
+            }
         }
 
         override fun onCharacteristicWriteRequest(
@@ -605,12 +646,20 @@ class AdvertiserHandler(private val context: Context) : MethodChannel.MethodCall
             BluetoothGattCharacteristic.PROPERTY_WRITE,
             BluetoothGattCharacteristic.PERMISSION_WRITE,
         )
+        // Who hosts the room. It would not fit in the advertising packet next to the room
+        // name, so a guest reads it from here once it has joined.
+        val hostNameCharacteristic = BluetoothGattCharacteristic(
+            Constants.HOST_NAME_UUID,
+            BluetoothGattCharacteristic.PROPERTY_READ,
+            BluetoothGattCharacteristic.PERMISSION_READ,
+        )
         val service = BluetoothGattService(
             Constants.SERVICE_UUID,
             BluetoothGattService.SERVICE_TYPE_PRIMARY
         )
         service.addCharacteristic(characteristic)
         service.addCharacteristic(authCharacteristic)
+        service.addCharacteristic(hostNameCharacteristic)
         server.addService(service)
 
         this.characteristic = characteristic

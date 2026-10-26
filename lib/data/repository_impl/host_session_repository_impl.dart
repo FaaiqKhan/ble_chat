@@ -34,12 +34,14 @@ class HostSessionRepositoryImpl implements HostSessionRepository {
     required String name,
     required String code,
     required int maxPeople,
+    required String hostName,
   }) => _methodChannel.invokeMethod<void>("start", {
     "roomName": name,
     "roomCode": code,
     "maxPeople": maxPeople,
     // The host is the first person in the room.
     "people": 1,
+    "hostName": hostName,
   });
 
   /// Native restarts advertising with the new count.

@@ -99,6 +99,7 @@ class ConnectSessionBloc
       code: event.code,
       message: event.message,
     ),
+    ConnectHostNameEvent(:final name) => state.copyWith(hostName: name),
     ConnectRssiEvent(:final rssi) => _withRssi(rssi),
     // Dropped while joining: that step didn't finish. Dropped in the room: lost.
     ConnectDisconnectedEvent() =>

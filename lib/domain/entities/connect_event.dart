@@ -19,6 +19,8 @@ sealed class ConnectEvent {
         return step == null
             ? const UnknownConnectEvent()
             : ConnectStepDoneEvent(step: step);
+      case "host":
+        return ConnectHostNameEvent(name: map["name"] as String);
       case "rssi":
         return ConnectRssiEvent(rssi: (map["rssi"] as num).toInt());
       case "connection" when map["status"] == "disconnected":
@@ -38,6 +40,14 @@ class ConnectStepDoneEvent extends ConnectEvent {
   const ConnectStepDoneEvent({required this.step});
 
   final ConnectSessionProgressStep step;
+}
+
+/// The name of the person hosting the room. Read from the host after connecting,
+/// because it doesn't fit in the advertisement.
+class ConnectHostNameEvent extends ConnectEvent {
+  const ConnectHostNameEvent({required this.name});
+
+  final String name;
 }
 
 /// A new reading of the link's signal strength (dBm), once joined.

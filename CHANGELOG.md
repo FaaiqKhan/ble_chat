@@ -1,5 +1,18 @@
 # Changelog
 
+# [1.11.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.10.0...v1.11.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* using own name as an example ([4d97ec5](https://github.com/FaaiqKhan/ble_chat/commit/4d97ec5de02bb2c65ec4d9885764c42e90fc797d))
+
+
+### Features
+
+* host name added ([e5c1a55](https://github.com/FaaiqKhan/ble_chat/commit/e5c1a55554cf799b65799aabc1ec9e2e7c89679d))
+* player name ui added for host ([711c247](https://github.com/FaaiqKhan/ble_chat/commit/711c247256051c1506ba2836d7f736734bdd6809))
+
 # [1.10.0](https://github.com/FaaiqKhan/ble_chat/compare/v1.9.0...v1.10.0) (2026-10-25)
 
 

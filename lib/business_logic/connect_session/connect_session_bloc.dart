@@ -41,6 +41,7 @@ class ConnectSessionBloc
     emit(
       state.copyWith(
         status: ConnectSessionStatus.connecting,
+        guestName: event.guestName,
         progress: ConnectSessionProgress.initial(),
       ),
     );

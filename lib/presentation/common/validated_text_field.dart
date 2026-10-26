@@ -21,6 +21,7 @@ class ValidatedTextField extends StatefulWidget {
     required this.neutralMessage,
     this.validMessage = 'Valid name',
     this.showErrors = false,
+    this.enabled = true,
     this.textCapitalization = TextCapitalization.sentences,
     this.textInputAction,
   });
@@ -41,6 +42,9 @@ class ValidatedTextField extends StatefulWidget {
   /// Show an error even if the user never touched the field, e.g. after pressing a
   /// disabled submit button.
   final bool showErrors;
+
+  /// False locks the field, e.g. while connecting; it keeps showing its value.
+  final bool enabled;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
 
@@ -117,6 +121,7 @@ class _ValidatedTextFieldState extends State<ValidatedTextField> {
           },
           child: TextFormField(
             controller: widget.controller,
+            enabled: widget.enabled,
             maxLength: widget.maxLength,
             style: tt.titleMedium,
             textCapitalization: widget.textCapitalization,
@@ -131,6 +136,7 @@ class _ValidatedTextFieldState extends State<ValidatedTextField> {
               suffixStyle: tt.bodySmall?.copyWith(fontFamily: AppFonts.mono),
               enabledBorder: _border(borderColor),
               focusedBorder: _border(borderColor),
+              disabledBorder: _border(borderColor),
               errorBorder: _border(palette.error),
               focusedErrorBorder: _border(palette.error),
               // The message row below shows the error, so the field's own is hidden.

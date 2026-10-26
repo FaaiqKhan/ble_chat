@@ -2,7 +2,12 @@ import 'package:ble_chat/domain/entities/connect_event.dart';
 
 abstract class ConnectSessionEvent {}
 
-final class ConnectChatSessionEvent extends ConnectSessionEvent {}
+final class ConnectChatSessionEvent extends ConnectSessionEvent {
+  ConnectChatSessionEvent({required this.guestName});
+
+  /// The name this guest chooses to be shown as in the room.
+  final String guestName;
+}
 
 final class DisconnectChatSessionEvent extends ConnectSessionEvent {}
 

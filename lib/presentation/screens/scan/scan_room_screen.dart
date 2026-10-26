@@ -1,5 +1,4 @@
 import 'package:ble_chat/business_logic/connect_session/connect_session_bloc.dart';
-import 'package:ble_chat/business_logic/connect_session/connect_session_event.dart';
 import 'package:ble_chat/business_logic/connect_session/connect_session_state.dart';
 import 'package:ble_chat/data/repository_impl/connect_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/ble_chat_outlined_button.dart';
@@ -174,7 +173,7 @@ class _ScanRoomScreenState extends State<ScanRoomScreen> {
                                         ),
                                         connectSessionRepository:
                                             ConnectSessionRepositoryImpl(),
-                                      )..add(ConnectChatSessionEvent()),
+                                      ),
                                       child: ConnectScreen(),
                                     ),
                               ),

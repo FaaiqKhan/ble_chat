@@ -2,7 +2,7 @@ import 'package:ble_chat/business_logic/scan_session/scan_session_bloc.dart';
 import 'package:ble_chat/business_logic/scan_session/scan_session_state.dart';
 import 'package:ble_chat/data/repository_impl/scan_session_repository_impl.dart';
 import 'package:ble_chat/presentation/common/icon_container.dart';
-import 'package:ble_chat/presentation/screens/create_room/create_room.dart';
+import 'package:ble_chat/presentation/screens/create_room/create_room_screen.dart';
 import 'package:ble_chat/presentation/screens/scan/scan_room_screen.dart';
 import 'package:ble_chat/theme/app_colors.dart';
 import 'package:ble_chat/theme/app_palette.dart';

@@ -3,6 +3,7 @@ import 'package:ble_chat/domain/entities/found_room.dart';
 import 'package:equatable/equatable.dart';
 
 enum ConnectSessionStatus {
+  ready,
   connecting,
   connected,
   failed,
@@ -18,11 +19,12 @@ class ConnectSessionState extends Equatable {
   const ConnectSessionState({
     required this.room,
     required this.authCode,
-    this.status = ConnectSessionStatus.connecting,
+    this.status = ConnectSessionStatus.ready,
     this.step = ConnectSessionProgressStep.connect,
     this.progress = const [],
     this.rssi,
     this.hostName,
+    this.guestName,
     this.errorCode,
     this.errorMessage,
   });
@@ -34,6 +36,9 @@ class ConnectSessionState extends Equatable {
 
   /// The startup steps and where each one is. Empty until connecting starts.
   final List<ConnectSessionProgress> progress;
+
+  /// The name this guest is shown as in the room. Set when Connect is pressed.
+  final String? guestName;
 
   /// Who hosts the room. Null until the host has been read.
   final String? hostName;
@@ -55,6 +60,7 @@ class ConnectSessionState extends Equatable {
     List<ConnectSessionProgress>? progress,
     int? rssi,
     String? hostName,
+    String? guestName,
     String? errorCode,
     String? errorMessage,
   }) {
@@ -66,6 +72,7 @@ class ConnectSessionState extends Equatable {
       progress: progress ?? this.progress,
       rssi: rssi ?? this.rssi,
       hostName: hostName ?? this.hostName,
+      guestName: guestName ?? this.guestName,
       // Cleared whenever a new status doesn't bring one.
       errorCode: errorCode,
       errorMessage: errorMessage,
@@ -79,6 +86,7 @@ class ConnectSessionState extends Equatable {
     progress,
     rssi,
     hostName,
+    guestName,
     errorCode,
     errorMessage,
   ];

@@ -18,6 +18,12 @@ class ConnectSessionProgress {
     ConnectSessionProgressStep.join => "Joining room",
   };
 
+  /// Nothing started yet: every step pending (shown before Connect is pressed).
+  static List<ConnectSessionProgress> allPending() => [
+    for (final step in ConnectSessionProgressStep.values)
+      ConnectSessionProgress(step: step, state: StepStatus.pending),
+  ];
+
   /// Every step pending except the first, which is in progress.
   static List<ConnectSessionProgress> initial() => [
     for (final step in ConnectSessionProgressStep.values)
